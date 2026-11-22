@@ -1,0 +1,6 @@
+{
+  "name": "Sistem Pengurusan Dr. Roket - Ahli Platinium",
+  "description": "Sistem pengurusan bersepadu Ahli Platinium, CRMP, dan Admin Dr. Roket bagi pemantauan kemajuan PhD, draf tesis, checklist mingguan, kelas, Thesis Talk, dan undian VC.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
