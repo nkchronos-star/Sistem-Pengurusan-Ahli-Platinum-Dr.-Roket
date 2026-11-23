@@ -56,6 +56,10 @@ import {
 } from '../utils/helpers';
 import { AvatarUploadModal } from './AvatarUploadModal';
 import { PasswordChangeModal } from './PasswordChangeModal';
+import {
+  MasterPhdRoadmap,
+  ScholarCharacterAvatar,
+} from './MasterPhdRoadmap';
 
 interface AdminDashboardProps {
   admin: AdminProfile;
@@ -263,8 +267,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     name: string;
   } | null>(null);
 
-  const computeSuggestedUsername = (pkg: MemberPackage) => {
-    return generateNextMemberUsername(pkg, members);
+  const computeSuggestedUsername = (pkg: MemberPackage, customName?: string) => {
+    return generateNextMemberUsername(
+      pkg,
+      members,
+      customName !== undefined ? customName : newMemName
+    );
   };
 
   const openChangePackageModal = (mem: MemberProfile) => {
@@ -349,10 +357,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
   const handleSelectNewPackage = (pkg: MemberPackage) => {
     setTargetPackage(pkg);
-    if (pkgModalMember && pkg === pkgModalMember.package) {
+    // ID Pengguna kekal tetap sama walaupun ahli bertukar pakej (cth: DR0001-KAMARIAH)
+    if (pkgModalMember) {
       setTargetUsername(pkgModalMember.username);
-    } else {
-      setTargetUsername(computeSuggestedUsername(pkg));
     }
   };
 
@@ -365,7 +372,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       targetUsername.trim().toUpperCase()
     );
     showToast(
-      `Pakej & Kod ${pkgModalMember.name} berjaya ditukar kepada ${targetPackage} (${targetUsername
+      `Pakej ${pkgModalMember.name} berjaya ditukar kepada ${targetPackage} (ID Pengguna Tetap kekal: ${targetUsername
         .trim()
         .toUpperCase()}).`
     );
@@ -856,25 +863,25 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   ];
 
   return (
-    <div className="min-h-screen bg-slate-100 text-slate-900 flex flex-col lg:flex-row">
-      {/* Collapsible Sidebar */}
+    <div className="min-h-screen bg-gradient-to-br from-[#f6f0ff] via-[#fdf4ff] to-[#eef2ff] text-slate-900 flex flex-col lg:flex-row">
+      {/* Collapsible Royal Purple Sidebar */}
       <aside
         className={`${
           sidebarOpen ? 'w-full lg:w-64' : 'w-full lg:w-20'
-        } bg-slate-900 text-slate-100 flex flex-col justify-between shrink-0 transition-all duration-200 border-r border-slate-800`}
+        } bg-gradient-to-b from-[#2a1258] via-[#230e4b] to-[#190838] text-slate-100 flex flex-col justify-between shrink-0 transition-all duration-200 border-r border-purple-900/50 shadow-xl`}
       >
         <div>
-          <div className="p-4 border-b border-slate-800 flex items-center justify-between gap-2">
+          <div className="p-4 border-b border-purple-800/50 flex items-center justify-between gap-2">
             <div className="flex items-center gap-2.5 overflow-hidden">
-              <div className="w-9 h-9 rounded-lg bg-indigo-600 text-white flex items-center justify-center shrink-0">
+              <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-pink-500 to-amber-400 text-white flex items-center justify-center shrink-0 shadow-md">
                 <Rocket className="w-5 h-5" />
               </div>
               {sidebarOpen && (
                 <div className="min-w-0">
-                  <div className="text-sm font-bold tracking-tight text-white truncate">
+                  <div className="text-sm font-black tracking-tight text-white truncate">
                     PLATINUM DR. ROKET
                   </div>
-                  <div className="text-[11px] text-amber-300 truncate">
+                  <div className="text-[11px] text-amber-300 truncate font-semibold">
                     SuperAdmin Sistem
                   </div>
                 </div>
@@ -884,7 +891,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               type="button"
               onClick={() => setSidebarOpen(!sidebarOpen)}
               title={sidebarOpen ? 'Tutup Sidebar' : 'Buka Sidebar'}
-              className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer shrink-0"
+              className="p-1.5 rounded-lg text-purple-300 hover:text-white hover:bg-purple-800/50 transition-colors cursor-pointer shrink-0"
             >
               {sidebarOpen ? (
                 <PanelLeftClose className="w-4 h-4" />
@@ -894,7 +901,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             </button>
           </div>
 
-          <nav className="p-2.5 space-y-1 flex lg:flex-col overflow-x-auto">
+          <nav className="p-2.5 space-y-1.5 flex lg:flex-col overflow-x-auto">
             {navItems.map((item) => (
               <button
                 key={item.id}
@@ -908,10 +915,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 title={!sidebarOpen ? item.label : undefined}
                 className={`flex items-center ${
                   sidebarOpen ? 'gap-3 px-3.5' : 'justify-center px-2'
-                } py-2.5 rounded-xl text-xs font-medium transition-colors whitespace-nowrap shrink-0 cursor-pointer w-full ${
+                } py-2.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap shrink-0 cursor-pointer w-full ${
                   activeTab === item.id
-                    ? 'bg-pink-600 text-white shadow-sm'
-                    : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+                    ? 'bg-gradient-to-r from-pink-500 to-rose-500 text-white shadow-md shadow-pink-950/40'
+                    : 'text-purple-100/80 hover:bg-purple-800/40 hover:text-white'
                 }`}
               >
                 {item.icon}
@@ -921,8 +928,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           </nav>
         </div>
 
-        {/* Bottom Profile Section with Upload File OR Image Link (Macam Gambar 1) */}
-        <div className="p-3.5 border-t border-slate-800 bg-slate-950/40 space-y-3">
+        {/* Bottom Profile Section */}
+        <div className="p-3.5 border-t border-purple-800/50 bg-[#14052e]/60 space-y-3">
           <div
             className={`flex items-center ${
               sidebarOpen ? 'gap-3' : 'justify-center'
@@ -939,7 +946,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   src={admin.avatar}
                   alt={admin.name}
                   referrerPolicy="no-referrer"
-                  className="w-10 h-10 rounded-full object-cover border border-amber-400"
+                  className="w-10 h-10 rounded-full object-cover border-2 border-amber-400"
                 />
               ) : (
                 <div className="w-10 h-10 rounded-full bg-amber-400 text-slate-950 font-bold text-xs flex items-center justify-center">
@@ -953,10 +960,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
             {sidebarOpen && (
               <div className="min-w-0 flex-1">
-                <div className="text-sm font-semibold text-white truncate">
+                <div className="text-sm font-bold text-white truncate">
                   {admin.name}
                 </div>
-                <div className="text-xs text-slate-400 truncate">
+                <div className="text-xs text-purple-200 truncate font-mono">
                   SuperAdmin · {admin.username}
                 </div>
               </div>
@@ -969,7 +976,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 <button
                   type="button"
                   onClick={() => setAvatarModalOpen(true)}
-                  className="flex-1 py-1.5 px-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 text-[11px] font-medium rounded-lg flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                  className="flex-1 py-1.5 px-2.5 bg-purple-900/70 hover:bg-purple-800 text-purple-100 text-[11px] font-semibold rounded-lg flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
                 >
                   <Upload className="w-3 h-3" />
                   Gambar
@@ -977,7 +984,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 <button
                   type="button"
                   onClick={() => setAdminPasswordModalOpen(true)}
-                  className="flex-1 py-1.5 px-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 text-[11px] font-medium rounded-lg flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                  className="flex-1 py-1.5 px-2.5 bg-purple-900/70 hover:bg-purple-800 text-purple-100 text-[11px] font-semibold rounded-lg flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
                 >
                   <KeyRound className="w-3 h-3" />
                   Password
@@ -986,7 +993,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               <button
                 type="button"
                 onClick={onLogout}
-                className="w-full py-1.5 px-2.5 bg-slate-800 hover:bg-red-900/60 text-slate-300 hover:text-white text-[11px] font-medium rounded-lg flex items-center justify-center gap-1 transition-colors cursor-pointer"
+                className="w-full py-1.5 px-2.5 bg-purple-900/70 hover:bg-red-700 text-purple-200 hover:text-white text-[11px] font-semibold rounded-lg flex items-center justify-center gap-1 transition-colors cursor-pointer"
               >
                 <LogOut className="w-3.5 h-3.5" />
                 Log Keluar
@@ -998,7 +1005,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 type="button"
                 onClick={() => setAdminPasswordModalOpen(true)}
                 title="Tukar Kata Laluan Admin"
-                className="w-full py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded-lg flex items-center justify-center cursor-pointer"
+                className="w-full py-2 bg-purple-900/70 hover:bg-purple-800 text-purple-200 hover:text-white rounded-lg flex items-center justify-center cursor-pointer"
               >
                 <KeyRound className="w-4 h-4" />
               </button>
@@ -1006,7 +1013,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 type="button"
                 onClick={onLogout}
                 title="Log Keluar"
-                className="w-full py-2 bg-slate-800 hover:bg-red-900/60 text-slate-300 hover:text-white rounded-lg flex items-center justify-center cursor-pointer"
+                className="w-full py-2 bg-purple-900/70 hover:bg-red-700 text-purple-200 hover:text-white rounded-lg flex items-center justify-center cursor-pointer"
               >
                 <LogOut className="w-4 h-4" />
               </button>
@@ -1017,13 +1024,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
       {/* Main Content */}
       <div className="flex-1 flex flex-col min-w-0">
-        <header className="bg-slate-900 text-white px-6 py-4 flex items-center justify-between gap-8 border-b border-slate-800">
+        <header className="bg-gradient-to-r from-[#2c125e] via-[#431d8a] to-[#5624a8] text-white px-6 py-4 flex items-center justify-between gap-8 border-b border-purple-800/50 shadow-md">
           <div>
-            <h1 className="text-base sm:text-lg font-bold tracking-tight">
+            <h1 className="text-base sm:text-xl font-black tracking-tight">
               Dashboard Pengurusan Ahli Platinum
             </h1>
-            <p className="text-xs text-slate-300">
-              Seliaan Dr. Mardhiyati Yunus · Panel Kawalan Utama (SuperAdmin)
+            <p className="text-xs text-purple-100 font-medium">
+              Panel Kawalan Utama (SuperAdmin) · Sistem Pengurusan Ahli Platinum Dr. Roket
             </p>
           </div>
 
@@ -1031,7 +1038,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             <button
               type="button"
               onClick={() => setActiveTab('crmp_schedule')}
-              className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold rounded-xl cursor-pointer"
+              className="px-4 py-2 bg-gradient-to-r from-pink-500 to-rose-500 hover:from-pink-600 hover:to-rose-600 text-white text-xs font-bold rounded-xl cursor-pointer shadow-sm"
             >
               Kawalan VC ({isTodayOff ? 'Hari Ini OFF' : '6:01 Petang'})
             </button>
@@ -1039,7 +1046,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         </header>
 
         {toastMsg && (
-          <div className="mx-6 mt-4 p-3 rounded-xl bg-emerald-900 text-white text-xs font-medium flex items-center justify-between">
+          <div className="mx-6 mt-4 p-3 rounded-xl bg-emerald-900 text-white text-xs font-medium flex items-center justify-between shadow-sm">
             <span>{toastMsg}</span>
             <button
               type="button"
@@ -1053,109 +1060,126 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
         <main className="p-6 space-y-6 max-w-7xl w-full mx-auto">
           {/* ========================================== */}
-          {/* TAB 1: PAPAN PEMUKA & SEMUA AHLI PLATINIUM */}
+          {/* TAB 1: PAPAN PEMUKA & SEMUA AHLI PLATINUM  */}
           {/* ========================================== */}
           {activeTab === 'members' && (
             <div className="space-y-6">
-              {/* Top 4 KPI Cards */}
+              {/* Top 4 KPI Cards (Mengikut Gambar Rujukan 2 + Senarai L: ?, P: ? dalam Jumlah Ahli) */}
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs">
-                  <div className="text-xs text-slate-500 font-semibold">
-                    Jumlah Ahli
+                <div className="bg-gradient-to-br from-sky-50 via-white to-indigo-50 border-2 border-sky-200 rounded-2xl p-5 shadow-sm">
+                  <div className="flex items-center justify-between">
+                    <div className="text-xs text-sky-900 font-extrabold uppercase tracking-wide">
+                      Jumlah Ahli
+                    </div>
+                    <Users className="w-5 h-5 text-sky-600" />
                   </div>
-                  <div className="text-3xl font-bold font-mono text-sky-600 mt-1 tabular-nums">
+                  <div className="text-3xl font-black font-mono text-sky-700 mt-1 tabular-nums">
                     {members.length}
                   </div>
-                  <div className="text-[11px] text-slate-500 mt-1">
-                    Premier, Elite Plus & Elite
+                  <div className="mt-2 flex items-center gap-2 text-xs font-black font-mono">
+                    <span className="px-2.5 py-0.5 rounded-lg bg-sky-100 text-sky-900 border border-sky-300">
+                      L: {maleMembers.length}
+                    </span>
+                    <span className="px-2.5 py-0.5 rounded-lg bg-pink-100 text-pink-900 border border-pink-300">
+                      P: {femaleMembers.length}
+                    </span>
                   </div>
                 </div>
 
-                <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs">
-                  <div className="text-xs text-slate-500 font-semibold">
-                    Jumlah CRMP
+                <div className="bg-gradient-to-br from-amber-50 via-white to-orange-50 border-2 border-amber-200 rounded-2xl p-5 shadow-sm">
+                  <div className="flex items-center justify-between">
+                    <div className="text-xs text-amber-900 font-extrabold uppercase tracking-wide">
+                      Jumlah CRMP
+                    </div>
+                    <GraduationCap className="w-5 h-5 text-amber-600" />
                   </div>
-                  <div className="text-3xl font-bold font-mono text-amber-600 mt-1 tabular-nums">
+                  <div className="text-3xl font-black font-mono text-amber-600 mt-1 tabular-nums">
                     {crmps.length}
                   </div>
-                  <div className="text-[11px] text-slate-500 mt-1">
-                    Kumpulan Penyelaras
+                  <div className="text-xs text-amber-800 font-semibold mt-2">
+                    Kumpulan Penyelaras CRMP
                   </div>
                 </div>
 
-                <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs">
-                  <div className="text-xs text-slate-500 font-semibold">
-                    Universiti
+                <div className="bg-gradient-to-br from-teal-50 via-white to-emerald-50 border-2 border-teal-200 rounded-2xl p-5 shadow-sm">
+                  <div className="flex items-center justify-between">
+                    <div className="text-xs text-teal-900 font-extrabold uppercase tracking-wide">
+                      Universiti
+                    </div>
+                    <Building2 className="w-5 h-5 text-teal-600" />
                   </div>
-                  <div className="text-3xl font-bold font-mono text-indigo-700 mt-1 tabular-nums">
+                  <div className="text-3xl font-black font-mono text-teal-700 mt-1 tabular-nums">
                     {uniqueUniversities}
                   </div>
-                  <div className="text-[11px] text-slate-500 mt-1">
-                    Semester S1 – S8
+                  <div className="text-xs text-teal-800 font-semibold mt-2">
+                    PhD: {phdMembers.length} · Master: {masterMembers.length}
                   </div>
                 </div>
 
-                <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs">
-                  <div className="text-xs text-slate-500 font-semibold">
-                    Penerbitan
+                <div className="bg-gradient-to-br from-pink-50 via-white to-rose-50 border-2 border-pink-200 rounded-2xl p-5 shadow-sm">
+                  <div className="flex items-center justify-between">
+                    <div className="text-xs text-pink-900 font-extrabold uppercase tracking-wide">
+                      Semester
+                    </div>
+                    <Calendar className="w-5 h-5 text-pink-600" />
                   </div>
-                  <div className="text-3xl font-bold font-mono text-pink-600 mt-1 tabular-nums">
-                    {totalPublications}
+                  <div className="text-3xl font-black font-mono text-pink-600 mt-1 tabular-nums">
+                    S1 – S8
                   </div>
-                  <div className="text-[11px] text-slate-500 mt-1">
-                    Artikel, Prosiding & Buku
+                  <div className="text-xs text-pink-800 font-semibold mt-2">
+                    {totalPublications} Penerbitan · {excellentThesisMembers.length} Tesis Cemerlang
                   </div>
                 </div>
               </div>
 
               {/* Ringkasan Pantas Pencapaian & Pautan Ke Analisis Keseluruhan Ahli */}
-              <div className="bg-white border border-indigo-200 rounded-2xl p-5 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+              <div className="bg-white/95 border-2 border-purple-100 rounded-2xl p-5 flex flex-col lg:flex-row lg:items-center justify-between gap-4 shadow-sm">
                 <div className="grid grid-cols-2 sm:grid-cols-6 gap-3 flex-1">
                   <div className="p-3 rounded-xl bg-amber-50 border border-amber-200">
-                    <div className="text-[11px] font-semibold text-amber-800">
+                    <div className="text-[11px] font-bold text-amber-800">
                       Tesis Cemerlang
                     </div>
-                    <div className="text-xl font-bold font-mono text-amber-950 mt-0.5">
+                    <div className="text-xl font-black font-mono text-amber-950 mt-0.5">
                       {excellentThesisMembers.length}
                     </div>
                   </div>
                   <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200">
-                    <div className="text-[11px] font-semibold text-emerald-800">
+                    <div className="text-[11px] font-bold text-emerald-800">
                       Jumlah Graduate
                     </div>
-                    <div className="text-xl font-bold font-mono text-emerald-950 mt-0.5">
+                    <div className="text-xl font-black font-mono text-emerald-950 mt-0.5">
                       {graduatedMembers.length}
                     </div>
                   </div>
                   <div className="p-3 rounded-xl bg-purple-50 border border-purple-200">
-                    <div className="text-[11px] font-semibold text-purple-800">
+                    <div className="text-[11px] font-bold text-purple-800">
                       Jumlah Viva
                     </div>
-                    <div className="text-xl font-bold font-mono text-purple-950 mt-0.5">
+                    <div className="text-xl font-black font-mono text-purple-950 mt-0.5">
                       {vivaMembers.length}
                     </div>
                   </div>
                   <div className="p-3 rounded-xl bg-sky-50 border border-sky-200">
-                    <div className="text-[11px] font-semibold text-sky-800">
+                    <div className="text-[11px] font-bold text-sky-800">
                       Jumlah NOS
                     </div>
-                    <div className="text-xl font-bold font-mono text-sky-950 mt-0.5">
+                    <div className="text-xl font-black font-mono text-sky-950 mt-0.5">
                       {nosMembers.length}
                     </div>
                   </div>
                   <div className="p-3 rounded-xl bg-indigo-50 border border-indigo-200">
-                    <div className="text-[11px] font-semibold text-indigo-800">
-                      Ahli Lelaki
+                    <div className="text-[11px] font-bold text-indigo-800">
+                      Ahli Lelaki (L)
                     </div>
-                    <div className="text-xl font-bold font-mono text-indigo-950 mt-0.5">
+                    <div className="text-xl font-black font-mono text-indigo-950 mt-0.5">
                       {maleMembers.length}
                     </div>
                   </div>
                   <div className="p-3 rounded-xl bg-pink-50 border border-pink-200">
-                    <div className="text-[11px] font-semibold text-pink-800">
-                      Ahli Perempuan
+                    <div className="text-[11px] font-bold text-pink-800">
+                      Ahli Perempuan (P)
                     </div>
-                    <div className="text-xl font-bold font-mono text-pink-950 mt-0.5">
+                    <div className="text-xl font-black font-mono text-pink-950 mt-0.5">
                       {femaleMembers.length}
                     </div>
                   </div>
@@ -1163,24 +1187,29 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 <button
                   type="button"
                   onClick={() => setActiveTab('analytics')}
-                  className="px-4 py-2.5 bg-indigo-700 hover:bg-indigo-800 text-white text-xs font-semibold rounded-xl inline-flex items-center justify-center gap-2 cursor-pointer shrink-0"
+                  className="px-4 py-2.5 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white text-xs font-bold rounded-xl inline-flex items-center justify-center gap-2 cursor-pointer shrink-0 shadow-sm"
                 >
                   <BarChart3 className="w-4 h-4" />
-                  Buka Analisis Keseluruhan Ahli
+                  Buka Carta Analisis Keseluruhan
                 </button>
               </div>
 
-              {/* Status Fasa Kajian (Donut) & Kemajuan Keseluruhan (Bar) */}
+              {/* Status Fasa Kajian (Donut) & Kemajuan Keseluruhan (Bar Berwarna + Anak Panah Trend) */}
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-                <div className="lg:col-span-6 bg-white border border-slate-200 rounded-2xl p-6 space-y-4">
-                  <h2 className="text-base font-bold text-slate-900">
-                    Status Fasa Kajian
-                  </h2>
+                <div className="lg:col-span-6 bg-white/95 border-2 border-purple-100 rounded-2xl p-6 space-y-4 shadow-sm">
+                  <div className="flex items-center justify-between">
+                    <h2 className="text-base font-black text-slate-900">
+                      Status Fasa Kajian
+                    </h2>
+                    <span className="px-2.5 py-1 rounded-lg bg-sky-50 text-sky-900 font-mono text-xs font-bold border border-sky-200">
+                      Jumlah: {members.length} (L: {maleMembers.length}, P: {femaleMembers.length})
+                    </span>
+                  </div>
                   <div className="flex flex-col sm:flex-row items-center gap-6 pt-2">
-                    <div className="relative w-36 h-36 flex items-center justify-center shrink-0">
+                    <div className="relative w-40 h-40 flex items-center justify-center shrink-0">
                       <svg
                         viewBox="0 0 36 36"
-                        className="w-36 h-36 -rotate-90"
+                        className="w-40 h-40 -rotate-90 drop-shadow-xs"
                       >
                         <circle
                           cx="18"
@@ -1188,7 +1217,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                           r="15.915"
                           fill="transparent"
                           stroke="#f1f5f9"
-                          strokeWidth="4.2"
+                          strokeWidth="4.8"
                         />
                         {
                           phaseDistribution.reduce(
@@ -1204,7 +1233,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                                   r="15.915"
                                   fill="transparent"
                                   stroke={seg.color}
-                                  strokeWidth="4.2"
+                                  strokeWidth="4.8"
                                   strokeDasharray={dashArray}
                                   strokeDashoffset={dashOffset}
                                 />
@@ -1217,10 +1246,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         }
                       </svg>
                       <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
-                        <span className="text-2xl font-bold font-mono text-slate-900">
+                        <span className="text-3xl font-black font-mono text-slate-900">
                           {members.length}
                         </span>
-                        <span className="text-xs font-semibold text-slate-500">
+                        <span className="text-xs font-bold text-slate-500">
                           Ahli
                         </span>
                       </div>
@@ -1230,19 +1259,19 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       {phaseDistribution.map((pd) => (
                         <div
                           key={pd.phase}
-                          className="flex items-center justify-between gap-2"
+                          className="flex items-center justify-between gap-2 p-1.5 rounded-lg hover:bg-purple-50/50"
                         >
                           <div className="flex items-center gap-2">
                             <span
-                              className="w-2.5 h-2.5 rounded-full shrink-0"
+                              className="w-3 h-3 rounded-full shrink-0"
                               style={{ backgroundColor: pd.color }}
                             />
-                            <span className="text-slate-700 font-medium">
+                            <span className="text-slate-700 font-semibold">
                               {pd.phase}
                             </span>
                           </div>
-                          <span className="font-mono font-bold text-slate-900">
-                            {pd.count}
+                          <span className="font-mono font-black text-slate-900">
+                            {pd.count} ({pd.pct}%)
                           </span>
                         </div>
                       ))}
@@ -1250,43 +1279,82 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   </div>
                 </div>
 
-                <div className="lg:col-span-6 bg-white border border-slate-200 rounded-2xl p-6 space-y-4">
-                  <h2 className="text-base font-bold text-slate-900">
-                    Kemajuan Keseluruhan
-                  </h2>
-                  <div className="h-44 flex items-end justify-around gap-3 pt-4 px-2 border-b border-slate-200">
-                    {members.slice(0, 7).map((m, idx) => {
-                      const barColors = [
-                        'bg-orange-500',
-                        'bg-amber-500',
-                        'bg-emerald-500',
-                        'bg-teal-600',
-                        'bg-sky-600',
-                        'bg-indigo-600',
-                        'bg-purple-600',
-                      ];
-                      return (
-                        <div
-                          key={m.id}
-                          className="flex-1 flex flex-col items-center gap-1.5 h-full justify-end"
-                        >
-                          <span className="font-mono text-[11px] font-bold text-slate-800">
-                            {m.overallProgress}%
-                          </span>
-                          <div
-                            className={`w-full max-w-[38px] rounded-t-lg ${
-                              barColors[idx % barColors.length]
-                            }`}
-                            style={{ height: `${Math.max(15, m.overallProgress)}%` }}
-                          />
-                        </div>
-                      );
-                    })}
+                <div className="lg:col-span-6 bg-white/95 border-2 border-purple-100 rounded-2xl p-6 space-y-4 shadow-sm">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h2 className="text-base font-black text-slate-900">
+                        Kemajuan Keseluruhan Ahli
+                      </h2>
+                      <p className="text-xs text-slate-500">
+                        Peratus kemajuan pengajian mengikut ahli (disusun menaik)
+                      </p>
+                    </div>
+                    <span className="px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-800 text-xs font-bold border border-emerald-200">
+                      Momentum Menaik ↗
+                    </span>
                   </div>
-                  <div className="flex items-center justify-around text-[11px] font-mono text-slate-600">
-                    {members.slice(0, 7).map((m) => (
-                      <span key={m.id}>{m.username}</span>
-                    ))}
+                  <div className="relative h-44 flex items-end justify-around gap-2.5 pt-6 px-2 border-b-2 border-slate-200">
+                    {/* Trend Arrow SVG in background */}
+                    <svg
+                      viewBox="0 0 300 100"
+                      className="absolute inset-0 w-full h-full pointer-events-none opacity-80"
+                      preserveAspectRatio="none"
+                    >
+                      <path
+                        d="M 20 82 Q 150 55 275 14"
+                        fill="none"
+                        stroke="#16a34a"
+                        strokeWidth="3.5"
+                        strokeLinecap="round"
+                      />
+                      <polygon
+                        points="282,10 267,11 275,23"
+                        fill="#16a34a"
+                      />
+                    </svg>
+                    {[...members]
+                      .sort((a, b) => a.overallProgress - b.overallProgress)
+                      .slice(0, 8)
+                      .map((m, idx) => {
+                        const barColors = [
+                          'bg-pink-500',
+                          'bg-orange-500',
+                          'bg-amber-400',
+                          'bg-emerald-500',
+                          'bg-teal-500',
+                          'bg-sky-500',
+                          'bg-blue-600',
+                          'bg-indigo-700',
+                        ];
+                        return (
+                          <div
+                            key={m.id}
+                            className="relative z-10 flex-1 flex flex-col items-center gap-1 h-full justify-end"
+                          >
+                            <span className="font-mono text-[10px] font-black text-slate-800">
+                              {m.overallProgress}%
+                            </span>
+                            <div
+                              className={`w-full max-w-[34px] rounded-t-lg shadow-xs ${
+                                barColors[idx % barColors.length]
+                              }`}
+                              style={{
+                                height: `${Math.max(15, m.overallProgress)}%`,
+                              }}
+                            />
+                          </div>
+                        );
+                      })}
+                  </div>
+                  <div className="flex items-center justify-around text-[10px] font-mono font-bold text-slate-600">
+                    {[...members]
+                      .sort((a, b) => a.overallProgress - b.overallProgress)
+                      .slice(0, 8)
+                      .map((m) => (
+                        <span key={m.id} className="truncate max-w-[68px]" title={m.username}>
+                          {m.username.split('-')[0]}
+                        </span>
+                      ))}
                   </div>
                 </div>
               </div>
@@ -1513,56 +1581,74 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   </button>
                 </div>
 
-                {/* 10 Kad KPI Utama Analisis Keseluruhan */}
+                {/* 10 Kad KPI Utama Analisis Keseluruhan (Termasuk Jumlah Ahli L: ?, P: ?) */}
                 <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3.5">
-                  <div className="p-4 rounded-xl border border-amber-300 bg-amber-50/70">
+                  <div className="p-4 rounded-xl border-2 border-sky-300 bg-gradient-to-br from-sky-50 to-indigo-50/70">
+                    <div className="flex items-center justify-between text-xs font-bold text-sky-900">
+                      <span>Jumlah Ahli</span>
+                      <Users className="w-4 h-4 text-sky-700" />
+                    </div>
+                    <div className="text-2xl font-black font-mono text-sky-950 mt-1">
+                      {members.length}
+                    </div>
+                    <div className="mt-1 flex items-center gap-1.5 text-[11px] font-black font-mono">
+                      <span className="px-2 py-0.5 rounded bg-sky-200/80 text-sky-950">
+                        L: {maleMembers.length}
+                      </span>
+                      <span className="px-2 py-0.5 rounded bg-pink-200/80 text-pink-950">
+                        P: {femaleMembers.length}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="p-4 rounded-xl border-2 border-amber-300 bg-amber-50/70">
                     <div className="flex items-center justify-between text-xs font-bold text-amber-900">
                       <span>Tesis Cemerlang</span>
                       <Award className="w-4 h-4 text-amber-700" />
                     </div>
-                    <div className="text-2xl font-bold font-mono text-amber-950 mt-1">
+                    <div className="text-2xl font-black font-mono text-amber-950 mt-1">
                       {excellentThesisMembers.length}
                     </div>
-                    <div className="text-[11px] text-amber-800 mt-0.5">
+                    <div className="text-[11px] text-amber-800 mt-0.5 font-medium">
                       Ahli dapat Tesis Cemerlang
                     </div>
                   </div>
 
-                  <div className="p-4 rounded-xl border border-emerald-300 bg-emerald-50/70">
+                  <div className="p-4 rounded-xl border-2 border-emerald-300 bg-emerald-50/70">
                     <div className="flex items-center justify-between text-xs font-bold text-emerald-900">
                       <span>Jumlah Graduate</span>
                       <GraduationCap className="w-4 h-4 text-emerald-700" />
                     </div>
-                    <div className="text-2xl font-bold font-mono text-emerald-950 mt-1">
+                    <div className="text-2xl font-black font-mono text-emerald-950 mt-1">
                       {graduatedMembers.length}
                     </div>
-                    <div className="text-[11px] text-emerald-800 mt-0.5">
+                    <div className="text-[11px] text-emerald-800 mt-0.5 font-medium">
                       Telah tamat / Konvokesyen
                     </div>
                   </div>
 
-                  <div className="p-4 rounded-xl border border-purple-300 bg-purple-50/70">
+                  <div className="p-4 rounded-xl border-2 border-purple-300 bg-purple-50/70">
                     <div className="flex items-center justify-between text-xs font-bold text-purple-900">
                       <span>Jumlah Ahli Viva</span>
                       <CheckCircle2 className="w-4 h-4 text-purple-700" />
                     </div>
-                    <div className="text-2xl font-bold font-mono text-purple-950 mt-1">
+                    <div className="text-2xl font-black font-mono text-purple-950 mt-1">
                       {vivaMembers.length}
                     </div>
-                    <div className="text-[11px] text-purple-800 mt-0.5">
+                    <div className="text-[11px] text-purple-800 mt-0.5 font-medium">
                       Fasa Viva / Lulus Viva
                     </div>
                   </div>
 
-                  <div className="p-4 rounded-xl border border-sky-300 bg-sky-50/70">
-                    <div className="flex items-center justify-between text-xs font-bold text-sky-900">
+                  <div className="p-4 rounded-xl border-2 border-orange-300 bg-orange-50/70">
+                    <div className="flex items-center justify-between text-xs font-bold text-orange-900">
                       <span>Jumlah Ahli NOS</span>
-                      <Clock className="w-4 h-4 text-sky-700" />
+                      <Clock className="w-4 h-4 text-orange-700" />
                     </div>
-                    <div className="text-2xl font-bold font-mono text-sky-950 mt-1">
+                    <div className="text-2xl font-black font-mono text-orange-950 mt-1">
                       {nosMembers.length}
                     </div>
-                    <div className="text-[11px] text-sky-800 mt-0.5">
+                    <div className="text-[11px] text-orange-800 mt-0.5 font-medium">
                       Notice of Submission & Hantar Tesis
                     </div>
                   </div>
@@ -1572,7 +1658,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       <span>PD & Data Collection</span>
                       <BookOpen className="w-4 h-4 text-indigo-700" />
                     </div>
-                    <div className="text-2xl font-bold font-mono text-indigo-950 mt-1">
+                    <div className="text-2xl font-black font-mono text-indigo-950 mt-1">
                       {pdMembers.length + dataCollectionMembers.length}
                     </div>
                     <div className="text-[11px] text-indigo-800 mt-0.5">
@@ -1580,45 +1666,25 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     </div>
                   </div>
 
-                  <div className="p-4 rounded-xl border border-slate-200 bg-slate-50">
-                    <div className="text-xs font-bold text-slate-700">
-                      Ahli Lelaki
-                    </div>
-                    <div className="text-2xl font-bold font-mono text-slate-900 mt-1">
-                      {maleMembers.length}{' '}
-                      <span className="text-xs font-normal text-slate-500">
-                        (
-                        {members.length > 0
-                          ? Math.round(
-                              (maleMembers.length / members.length) * 100
-                            )
-                          : 0}
-                        %)
-                      </span>
-                    </div>
-                    <div className="text-[11px] text-slate-500 mt-0.5">
-                      Daripada {members.length} ahli
-                    </div>
-                  </div>
-
-                  <div className="p-4 rounded-xl border border-pink-200 bg-pink-50/50">
+                  <div className="p-4 rounded-xl border border-pink-200 bg-pink-50/60">
                     <div className="text-xs font-bold text-pink-900">
-                      Ahli Perempuan
+                      Pecahan Jantina (L & P)
                     </div>
-                    <div className="text-2xl font-bold font-mono text-pink-950 mt-1">
-                      {femaleMembers.length}{' '}
-                      <span className="text-xs font-normal text-pink-700">
-                        (
-                        {members.length > 0
-                          ? Math.round(
-                              (femaleMembers.length / members.length) * 100
-                            )
-                          : 0}
-                        %)
-                      </span>
+                    <div className="text-xl font-black font-mono text-pink-950 mt-1">
+                      L: {maleMembers.length} · P: {femaleMembers.length}
                     </div>
                     <div className="text-[11px] text-pink-800 mt-0.5">
-                      Daripada {members.length} ahli
+                      Lelaki:{' '}
+                      {members.length > 0
+                        ? Math.round((maleMembers.length / members.length) * 100)
+                        : 0}
+                      % · Perempuan:{' '}
+                      {members.length > 0
+                        ? Math.round(
+                            (femaleMembers.length / members.length) * 100
+                          )
+                        : 0}
+                      %
                     </div>
                   </div>
 
@@ -1626,7 +1692,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     <div className="text-xs font-bold text-slate-700">
                       Peringkat Pengajian
                     </div>
-                    <div className="text-xl font-bold font-mono text-slate-900 mt-1">
+                    <div className="text-xl font-black font-mono text-slate-900 mt-1">
                       PhD: {phdMembers.length} · Master: {masterMembers.length}
                     </div>
                     <div className="text-[11px] text-slate-500 mt-0.5">
@@ -1639,7 +1705,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     <div className="text-xs font-bold text-slate-700">
                       Universiti & Negeri
                     </div>
-                    <div className="text-xl font-bold font-mono text-slate-900 mt-1">
+                    <div className="text-xl font-black font-mono text-slate-900 mt-1">
                       {universityAnalytics.length} Uni · {stateAnalytics.length}{' '}
                       Negeri
                     </div>
@@ -1652,11 +1718,183 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     <div className="text-xs font-bold text-slate-700">
                       Penerbitan & Learning Point
                     </div>
-                    <div className="text-xl font-bold font-mono text-slate-900 mt-1">
+                    <div className="text-xl font-black font-mono text-slate-900 mt-1">
                       {totalPublications} Pub · {totalLearningPointsCount} LP
                     </div>
                     <div className="text-[11px] text-slate-500 mt-0.5">
                       Jurnal, Prosiding & Nota Kelas
+                    </div>
+                  </div>
+                </div>
+
+                {/* Carta Visual Menarik & Senang Dibaca: Donut Fasa Kajian + Bar Chart Pencapaian & Semester */}
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 pt-2">
+                  {/* Donut Chart Visual Status Fasa Kajian */}
+                  <div className="lg:col-span-5 p-5 rounded-2xl bg-gradient-to-br from-purple-50/70 via-white to-indigo-50/50 border border-purple-200 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-sm font-black text-slate-900">
+                        Carta Visual Taburan Fasa Kajian
+                      </h3>
+                      <span className="font-mono text-xs font-bold text-indigo-700">
+                        L: {maleMembers.length} | P: {femaleMembers.length}
+                      </span>
+                    </div>
+                    <div className="flex flex-col sm:flex-row items-center gap-5">
+                      <div className="relative w-36 h-36 flex items-center justify-center shrink-0">
+                        <svg
+                          viewBox="0 0 36 36"
+                          className="w-36 h-36 -rotate-90"
+                        >
+                          <circle
+                            cx="18"
+                            cy="18"
+                            r="15.915"
+                            fill="transparent"
+                            stroke="#f1f5f9"
+                            strokeWidth="4.8"
+                          />
+                          {
+                            phaseDistribution.reduce(
+                              (acc, seg) => {
+                                if (seg.pct <= 0) return acc;
+                                const dashArray = `${seg.pct} ${100 - seg.pct}`;
+                                const dashOffset = 100 - acc.offset;
+                                acc.elements.push(
+                                  <circle
+                                    key={seg.phase}
+                                    cx="18"
+                                    cy="18"
+                                    r="15.915"
+                                    fill="transparent"
+                                    stroke={seg.color}
+                                    strokeWidth="4.8"
+                                    strokeDasharray={dashArray}
+                                    strokeDashoffset={dashOffset}
+                                  />
+                                );
+                                acc.offset += seg.pct;
+                                return acc;
+                              },
+                              { offset: 0, elements: [] as React.ReactNode[] }
+                            ).elements
+                          }
+                        </svg>
+                        <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
+                          <span className="text-2xl font-black font-mono text-slate-900">
+                            {members.length}
+                          </span>
+                          <span className="text-[11px] font-bold text-slate-500">
+                            Ahli
+                          </span>
+                        </div>
+                      </div>
+                      <div className="flex-1 space-y-1.5 text-xs w-full">
+                        {phaseDistribution.map((pd) => (
+                          <div
+                            key={pd.phase}
+                            className="flex items-center justify-between gap-2"
+                          >
+                            <div className="flex items-center gap-2">
+                              <span
+                                className="w-2.5 h-2.5 rounded-full shrink-0"
+                                style={{ backgroundColor: pd.color }}
+                              />
+                              <span className="text-slate-700 font-semibold">
+                                {pd.phase}
+                              </span>
+                            </div>
+                            <span className="font-mono font-black text-slate-900">
+                              {pd.count} ({pd.pct}%)
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Carta Bar Visual Pencapaian & Demografi */}
+                  <div className="lg:col-span-7 p-5 rounded-2xl bg-gradient-to-br from-indigo-50/60 via-white to-pink-50/50 border border-indigo-200 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-sm font-black text-slate-900">
+                        Carta Bar Analisis Pencapaian, Jantina & Semester
+                      </h3>
+                      <span className="text-xs font-semibold text-slate-500">
+                        Perbandingan Visual Mudah Dibaca
+                      </span>
+                    </div>
+                    <div className="h-40 flex items-end justify-around gap-3 pt-4 px-2 border-b border-slate-200">
+                      {[
+                        {
+                          label: 'Lelaki (L)',
+                          val: maleMembers.length,
+                          color: 'bg-sky-500',
+                        },
+                        {
+                          label: 'Perempuan (P)',
+                          val: femaleMembers.length,
+                          color: 'bg-pink-500',
+                        },
+                        {
+                          label: 'Telah PD',
+                          val: pdMembers.length + dataCollectionMembers.length,
+                          color: 'bg-indigo-600',
+                        },
+                        {
+                          label: 'Fasa NOS',
+                          val: nosMembers.length,
+                          color: 'bg-orange-500',
+                        },
+                        {
+                          label: 'Viva Voce',
+                          val: vivaMembers.length,
+                          color: 'bg-purple-600',
+                        },
+                        {
+                          label: 'Graduate',
+                          val: graduatedMembers.length,
+                          color: 'bg-emerald-600',
+                        },
+                        {
+                          label: 'Cemerlang',
+                          val: excellentThesisMembers.length,
+                          color: 'bg-amber-500',
+                        },
+                      ].map((bar) => {
+                        const maxVal = Math.max(members.length, 5);
+                        const hPct = Math.max(
+                          14,
+                          Math.round((bar.val / maxVal) * 100)
+                        );
+                        return (
+                          <div
+                            key={bar.label}
+                            className="flex-1 flex flex-col items-center gap-1 h-full justify-end"
+                          >
+                            <span className="font-mono text-xs font-black text-slate-900">
+                              {bar.val}
+                            </span>
+                            <div
+                              className={`w-full max-w-[38px] rounded-t-lg ${bar.color} shadow-xs`}
+                              style={{ height: `${hPct}%` }}
+                            />
+                          </div>
+                        );
+                      })}
+                    </div>
+                    <div className="flex items-center justify-around text-[11px] font-bold text-slate-700 text-center">
+                      {[
+                        'Lelaki (L)',
+                        'Perempuan (P)',
+                        'PD & Data',
+                        'Fasa NOS',
+                        'Viva Voce',
+                        'Graduate',
+                        'Cemerlang',
+                      ].map((lbl) => (
+                        <span key={lbl} className="flex-1 truncate">
+                          {lbl}
+                        </span>
+                      ))}
                     </div>
                   </div>
                 </div>
@@ -2753,7 +2991,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                             {c.groupName} · {c.university} · {c.specialization}
                           </div>
                           <div className="text-xs text-slate-500 font-mono">
-                            Ahli Seliaan: {count} orang · Tel: {c.phone}
+                            Bilangan Ahli: {count} orang · Tel: {c.phone}
                           </div>
                         </div>
 
@@ -3139,14 +3377,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         onSavePassword={handleSaveAdminPassword}
       />
 
-      {/* Modal Tukar Pakej & Kod/Username Ahli (Termasuk Pakej Holding Room) */}
+      {/* Modal Tukar Pakej Ahli (ID Pengguna Kekal Tetap Sama Walaupun Bertukar Pakej) */}
       {pkgModalMember && (
         <div className="fixed inset-0 z-50 bg-slate-900/60 flex items-center justify-center p-4">
           <div className="bg-white border border-slate-200 rounded-2xl max-w-lg w-full p-6 space-y-4">
             <div className="flex items-center justify-between border-b border-slate-200 pb-3">
               <div>
                 <h3 className="text-base font-bold text-slate-900">
-                  Tukar Pakej & Kod / Username Ahli
+                  Tukar Pakej Ahli (ID Pengguna Kekal Tetap Sama)
                 </h3>
                 <p className="text-xs text-slate-500">
                   Ahli: {pkgModalMember.name} ({pkgModalMember.username})
@@ -3189,13 +3427,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     >
                       <div>{pkg}</div>
                       <div className="text-[10px] font-mono text-slate-500 mt-0.5">
-                        {pkg === 'Premier'
-                          ? 'APPxxxx'
-                          : pkg === 'Elite Plus'
-                          ? 'APEPxxxx'
-                          : pkg === 'Holding Room'
-                          ? 'APHRxxxx'
-                          : 'APExxxx'}
+                        ID Tetap Kekal
                       </div>
                     </button>
                   ))}
@@ -3209,17 +3441,28 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 )}
               </div>
 
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  Kod / Username Baharu
-                </label>
+              <div className="p-3.5 rounded-xl bg-emerald-50/80 border border-emerald-200 space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <label className="block text-xs font-bold text-emerald-950">
+                    ID Pengguna Tetap Ahli (Tidak Berubah Bila Tukar Pakej)
+                  </label>
+                  <span className="px-2 py-0.5 rounded bg-emerald-200/80 text-emerald-950 text-[10px] font-bold">
+                    ID KEKAL SAMA
+                  </span>
+                </div>
                 <input
                   type="text"
                   required
                   value={targetUsername}
                   onChange={(e) => setTargetUsername(e.target.value)}
-                  className="w-full px-3 py-2 text-sm font-mono font-bold border border-slate-300 rounded-lg"
+                  className="w-full px-3 py-2 text-sm font-mono font-bold border border-emerald-300 rounded-lg bg-white text-indigo-900"
                 />
+                <p className="text-[11px] text-emerald-800">
+                  ID Pengguna seperti <strong>{pkgModalMember.username}</strong>{' '}
+                  kekal sama walaupun ahli bertukar status Premier, Elite Plus,
+                  Elite atau Holding Room supaya pangkalan data sentiasa
+                  konsisten. Ahli juga boleh log masuk menggunakan E-mel mereka.
+                </p>
               </div>
 
               <div className="flex items-center justify-between pt-2 border-t border-slate-200">
@@ -3740,31 +3983,34 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         </div>
       )}
 
-      {/* Modal Lihat Maklumat Lengkap Ahli (Oleh Admin) */}
+      {/* Modal Lihat Maklumat Lengkap Ahli Berserta Gambar & Roadmap (Oleh Admin) */}
       {viewingMember && (
         <div className="fixed inset-0 z-50 bg-slate-900/60 flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-white border border-slate-200 rounded-2xl max-w-3xl w-full p-6 space-y-5 max-h-[90vh] overflow-y-auto">
-            <div className="flex items-start justify-between border-b border-slate-200 pb-4">
-              <div>
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="px-2.5 py-0.5 rounded-md bg-indigo-100 text-indigo-900 font-mono text-xs font-bold">
-                    {viewingMember.username}
-                  </span>
-                  <span className="px-2.5 py-0.5 rounded-md bg-slate-100 text-slate-800 text-xs font-bold">
-                    Pakej {viewingMember.package}
-                  </span>
-                  <span className="px-2.5 py-0.5 rounded-md bg-emerald-50 text-emerald-800 text-xs font-semibold">
-                    {viewingMember.studyLevel || 'PhD'} ·{' '}
-                    {viewingMember.currentSemester}
-                  </span>
+          <div className="bg-white border-2 border-purple-200 rounded-2xl max-w-4xl w-full p-6 space-y-5 max-h-[90vh] overflow-y-auto shadow-2xl">
+            <div className="flex items-start justify-between border-b border-purple-100 pb-4 bg-gradient-to-r from-purple-50 via-pink-50/50 to-indigo-50 p-4 rounded-xl">
+              <div className="flex items-center gap-4">
+                <ScholarCharacterAvatar member={viewingMember} size="lg" />
+                <div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="px-2.5 py-0.5 rounded-md bg-indigo-700 text-white font-mono text-xs font-bold">
+                      ID Tetap: {viewingMember.username}
+                    </span>
+                    <span className="px-2.5 py-0.5 rounded-md bg-pink-100 text-pink-900 text-xs font-bold">
+                      Pakej {viewingMember.package}
+                    </span>
+                    <span className="px-2.5 py-0.5 rounded-md bg-emerald-100 text-emerald-900 text-xs font-semibold">
+                      {viewingMember.studyLevel || 'PhD'} ·{' '}
+                      {viewingMember.currentSemester}
+                    </span>
+                  </div>
+                  <h3 className="text-lg font-black text-slate-900 mt-1.5">
+                    {viewingMember.name}
+                  </h3>
+                  <p className="text-xs text-slate-600">
+                    {viewingMember.email} · {viewingMember.phone} · Kumpulan
+                    CRMP: <strong>{viewingMember.crmpId}</strong>
+                  </p>
                 </div>
-                <h3 className="text-lg font-bold text-slate-900 mt-1.5">
-                  {viewingMember.name}
-                </h3>
-                <p className="text-xs text-slate-500">
-                  {viewingMember.email} · {viewingMember.phone} · Kumpulan CRMP:{' '}
-                  <strong>{viewingMember.crmpId}</strong>
-                </p>
               </div>
               <button
                 type="button"
@@ -3774,6 +4020,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 <X className="w-5 h-5" />
               </button>
             </div>
+
+            <MasterPhdRoadmap member={viewingMember} compact />
 
             {/* Kawalan Status Pencapaian & Demografi Ahli Oleh Admin */}
             <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-3">

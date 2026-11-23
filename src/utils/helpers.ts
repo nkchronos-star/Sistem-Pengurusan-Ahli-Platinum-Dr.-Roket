@@ -1,4 +1,4 @@
-import { DayOfWeek, MemberPackage, MemberProfile, WeeklyChecklist } from '../types';
+import { DayOfWeek, MemberPackage, MemberProfile, PhDPhase, WeeklyChecklist } from '../types';
 
 export const STANDARD_AVATAR_SIZE = 300; // 300x300 px
 export const MAX_IMAGE_FILE_BYTES = 2 * 1024 * 1024; // 2MB
@@ -914,34 +914,288 @@ export function lookupMalaysiaPostcode(rawPostcode: string): {
   return null;
 }
 
-export function getPackagePrefix(pkg: MemberPackage): string {
-  if (pkg === 'Premier') return 'APP';
-  if (pkg === 'Elite Plus') return 'APEP';
-  if (pkg === 'Holding Room') return 'APHR';
-  return 'APE';
+export function getPackagePrefix(_pkg: MemberPackage): string {
+  return 'DR';
 }
 
+/**
+ * Extracts a short, memorable uppercase name tag from a member's full name
+ * e.g. "Nik Kamariah binti Nik Ismail" -> "KAMARIAH"
+ * e.g. "Ahmad Faiz bin Abd Razak" -> "FAIZ"
+ */
+export function extractMemberShortTag(fullName?: string): string {
+  if (!fullName || !fullName.trim()) return 'AHLI';
+  const beforePatronym = fullName
+    .split(/\s+(?:binti|bin|bt\.?|a\/p|a\/l)\s+/i)[0]
+    .trim();
+  const rawTokens = beforePatronym
+    .replace(/[^a-zA-Z\s]/g, ' ')
+    .split(/\s+/)
+    .map((t) => t.trim().toUpperCase())
+    .filter(Boolean);
+
+  if (rawTokens.length === 0) return 'AHLI';
+
+  const honorifics = new Set([
+    'DR',
+    'PROF',
+    'MADYA',
+    'IR',
+    'HJ',
+    'HJH',
+    'DATO',
+    'DATUK',
+    'TAN',
+    'SRI',
+    'PUAN',
+    'ENCIK',
+    'CIK',
+    'TUAN',
+  ]);
+  const commonPrefixes = new Set([
+    'NIK',
+    'SITI',
+    'NUR',
+    'NURUL',
+    'MOHD',
+    'MUHAMMAD',
+    'MOHAMAD',
+    'AHMAD',
+    'WAN',
+    'CHE',
+    'TENGKU',
+    'SYED',
+    'SHARIFAH',
+    'ABDUL',
+    'ABD',
+    'AHLI',
+    'BAHARU',
+    'PLATINUM',
+  ]);
+
+  const withoutHonorifics = rawTokens.filter((t) => !honorifics.has(t));
+  const meaningful = withoutHonorifics.filter((t) => !commonPrefixes.has(t));
+
+  if (meaningful.length > 0) {
+    return meaningful[0].slice(0, 12);
+  }
+  if (withoutHonorifics.length > 0) {
+    return withoutHonorifics[withoutHonorifics.length - 1].slice(0, 12);
+  }
+  return rawTokens[0].slice(0, 12) || 'AHLI';
+}
+
+/**
+ * Generates a permanent Member ID that stays the same even when switching packages:
+ * Format: DR0001, DR0002, etc.
+ */
 export function generateNextMemberUsername(
-  pkg: MemberPackage,
-  members: MemberProfile[]
+  _pkg: MemberPackage,
+  members: MemberProfile[],
+  _memberName?: string
 ): string {
-  const prefix = getPackagePrefix(pkg);
-  const matching = members.filter((m) => {
-    const upper = m.username.toUpperCase();
-    if (pkg === 'Elite') {
-      return (
-        upper.startsWith('APE') &&
-        !upper.startsWith('APEP') &&
-        !upper.startsWith('APHR')
-      );
-    }
-    return upper.startsWith(prefix);
-  });
-  const maxNum = matching.reduce((acc, m) => {
-    const n = parseInt(m.username.toUpperCase().replace(prefix, ''), 10);
+  const maxNum = members.reduce((acc, m) => {
+    const match = m.username.toUpperCase().match(/^(?:DR|APP|APEP|APE|APHR)(\d+)/);
+    const n = match ? parseInt(match[1], 10) : NaN;
     return !isNaN(n) && n > acc ? n : acc;
   }, 0);
-  return `${prefix}${String(maxNum + 1).padStart(4, '0')}`;
+  const nextSeq = String(maxNum + 1).padStart(4, '0');
+  return `DR${nextSeq}`;
+}
+
+/**
+ * Menentukan Fasa Kajian (PhDPhase) dan anggaran kemajuan berdasarkan tarikh-tarikh
+ * dalam Master PhD Roadmap berbanding tarikh semasa (currentDateStr).
+ * Memastikan Fasa Kajian pada Papan Pemuka sentiasa 100% sama dengan kedudukan di Master PhD Roadmap.
+ */
+export function derivePhaseFromDates(
+  dates: MemberProfile['dates'],
+  currentDateStr: string = getTodayDateStr()
+): { phase: PhDPhase; milestoneIndex: number; suggestedProgress: number } {
+  const steps: {
+    dateStr: string;
+    phase: PhDPhase;
+    suggestedProgress: number;
+  }[] = [
+    {
+      dateStr: dates?.earlyRegistration || '',
+      phase: 'Early Registration',
+      suggestedProgress: 18,
+    },
+    {
+      dateStr: dates?.registerPD || '',
+      phase: 'Proposal Defence (PD)',
+      suggestedProgress: 38,
+    },
+    {
+      dateStr: dates?.dataCollectionAnalysis || '',
+      phase: 'Data Collection & Analysis',
+      suggestedProgress: 65,
+    },
+    {
+      dateStr: dates?.nos || '',
+      phase: 'Notice of Submission (Nos)',
+      suggestedProgress: 82,
+    },
+    {
+      dateStr: dates?.thesisSubmission || '',
+      phase: 'Thesis Submission',
+      suggestedProgress: 92,
+    },
+    {
+      dateStr: dates?.viva || '',
+      phase: 'Viva',
+      suggestedProgress: 98,
+    },
+  ];
+
+  let lastCompletedIndex = -1;
+  steps.forEach((step, idx) => {
+    if (step.dateStr && step.dateStr <= currentDateStr) {
+      lastCompletedIndex = idx;
+    }
+  });
+
+  if (dates?.convocation && dates.convocation <= currentDateStr) {
+    return {
+      phase: 'Viva',
+      milestoneIndex: 6,
+      suggestedProgress: 100,
+    };
+  }
+
+  const effectiveIdx = Math.max(0, lastCompletedIndex);
+  const matched = steps[effectiveIdx];
+  return {
+    phase: matched.phase,
+    milestoneIndex: effectiveIdx,
+    suggestedProgress: matched.suggestedProgress,
+  };
+}
+
+/**
+ * Menyegerakkan tarikh-tarikh Master PhD Roadmap apabila ahli memilih Fasa Kajian secara terus,
+ * supaya kedudukan watak di atas jalan berliku Master PhD Roadmap sentiasa selari dengan Fasa Kajian.
+ */
+export function syncDatesToMatchPhase(
+  dates: MemberProfile['dates'],
+  targetPhase: PhDPhase,
+  currentDateStr: string = getTodayDateStr()
+): MemberProfile['dates'] {
+  const orderedPhases: PhDPhase[] = [
+    'Early Registration',
+    'Proposal Defence (PD)',
+    'Data Collection & Analysis',
+    'Notice of Submission (Nos)',
+    'Thesis Submission',
+    'Viva',
+  ];
+  const targetIdx = Math.max(0, orderedPhases.indexOf(targetPhase));
+
+  const [y, m, d] = currentDateStr.split('-').map(Number);
+  const baseDate = y && m && d ? new Date(y, m - 1, d) : new Date();
+  const addMonthsToDateStr = (monthsOffset: number): string => {
+    const dt = new Date(baseDate);
+    dt.setMonth(dt.getMonth() + monthsOffset);
+    const pad = (n: number) => String(n).padStart(2, '0');
+    return `${dt.getFullYear()}-${pad(dt.getMonth() + 1)}-${pad(dt.getDate())}`;
+  };
+
+  const keys: (keyof MemberProfile['dates'])[] = [
+    'earlyRegistration',
+    'registerPD',
+    'dataCollectionAnalysis',
+    'nos',
+    'thesisSubmission',
+    'viva',
+  ];
+
+  const nextDates: MemberProfile['dates'] = {
+    ...dates,
+  };
+
+  keys.forEach((key, idx) => {
+    const existing = nextDates[key] || '';
+    if (idx <= targetIdx) {
+      // Milestone ini telah dicapai (mesti <= currentDateStr)
+      if (!existing || existing > currentDateStr) {
+        const monthsBack = (targetIdx - idx) * 3;
+        nextDates[key] =
+          monthsBack === 0 ? currentDateStr : addMonthsToDateStr(-monthsBack);
+      }
+    } else {
+      // Milestone ini belum dicapai (mesti > currentDateStr supaya roadmap tidak terlajak)
+      if (!existing || existing <= currentDateStr) {
+        const monthsAhead = (idx - targetIdx) * 4;
+        nextDates[key] = addMonthsToDateStr(monthsAhead);
+      }
+    }
+  });
+
+  // Pastikan tarikh konvokesyen sentiasa selepas viva jika belum konvo
+  if (
+    !nextDates.convocation ||
+    (targetPhase !== 'Viva' && nextDates.convocation <= currentDateStr) ||
+    (nextDates.viva && nextDates.convocation < nextDates.viva)
+  ) {
+    nextDates.convocation = addMonthsToDateStr((6 - targetIdx) * 4 + 3);
+  }
+
+  return nextDates;
+}
+
+export function inferMemberGender(
+  m: Pick<MemberProfile, 'name' | 'gender'>
+): 'Lelaki' | 'Perempuan' {
+  if (m.gender === 'Lelaki' || m.gender === 'Perempuan') return m.gender;
+  const lower = (m.name || '').toLowerCase();
+  if (
+    lower.includes(' binti ') ||
+    lower.includes(' bt ') ||
+    lower.includes(' bt. ') ||
+    lower.startsWith('siti ') ||
+    lower.startsWith('nur ') ||
+    lower.startsWith('nurul ') ||
+    lower.startsWith('nik kamariah') ||
+    lower.startsWith('farah ') ||
+    lower.startsWith('nadia ') ||
+    lower.startsWith('puteri ') ||
+    lower.startsWith('aisyah ') ||
+    lower.startsWith('nor') ||
+    lower.includes('kamariah') ||
+    lower.includes('wahida') ||
+    lower.includes('sarah') ||
+    lower.includes('syuhada') ||
+    lower.includes('huda')
+  ) {
+    return 'Perempuan';
+  }
+  return 'Lelaki';
+}
+
+export function computeChecklistCompletionForRecord(
+  chk?: WeeklyChecklist
+): { tickedCount: number; totalPossible: number; percentage: number } {
+  const totalPossible = 22; // 1 Weekly Fokus + 7 TDRs + 14 Daily Fokus/Win
+  if (!chk) return { tickedCount: 0, totalPossible, percentage: 0 };
+  let ticked = 0;
+  if (chk.weeklyFokusCompleted) ticked++;
+  if (chk.tdr001Isnin) ticked++;
+  if (chk.tdr006Selasa) ticked++;
+  if (chk.tdr002Rabu) ticked++;
+  if (chk.tdr003Rabu) ticked++;
+  if (chk.tdr017Khamis) ticked++;
+  if (chk.tdr018Khamis) ticked++;
+  if (chk.tdr007Jumaat) ticked++;
+  Object.values(chk.dailyEntries || {}).forEach((d) => {
+    if (d.dailyFokusCompleted) ticked++;
+    if (d.dailyWinCompleted) ticked++;
+  });
+  return {
+    tickedCount: ticked,
+    totalPossible,
+    percentage: Math.min(100, Math.round((ticked / totalPossible) * 100)),
+  };
 }
 
 export function generateTemporaryPassword(): string {

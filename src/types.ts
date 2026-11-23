@@ -56,6 +56,7 @@ export interface DraftSubmission {
   targetForNextDraft: string;
   updateAffirmationCard: boolean;
   affirmationText?: string;
+  draftLink?: string; // Link dokumen draf masing-masing (Google Drive / OneDrive / Dropbox)
   memberNotes?: string; // Catatan ahli untuk setiap kenaikan draf
   crmpFeedback?: string;
 }

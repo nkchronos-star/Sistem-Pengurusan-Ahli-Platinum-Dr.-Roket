@@ -28,26 +28,30 @@ export function computeIntegritySignature(payload: string): string {
 export function encryptVaultData(data: unknown): string {
   try {
     const jsonStr = JSON.stringify(data);
-    const encodedUri = encodeURIComponent(jsonStr);
-    const keyLen = VAULT_SECRET_KEY.length;
-    const xoredChars: number[] = [];
+    try {
+      const encodedUri = encodeURIComponent(jsonStr);
+      const keyLen = VAULT_SECRET_KEY.length;
+      const xoredChars: number[] = [];
 
-    for (let i = 0; i < encodedUri.length; i++) {
-      const charCode = encodedUri.charCodeAt(i);
-      const keyChar = VAULT_SECRET_KEY.charCodeAt(i % keyLen);
-      xoredChars.push(charCode ^ (keyChar & 0x1f));
+      for (let i = 0; i < encodedUri.length; i++) {
+        const charCode = encodedUri.charCodeAt(i);
+        const keyChar = VAULT_SECRET_KEY.charCodeAt(i % keyLen);
+        xoredChars.push(charCode ^ (keyChar & 0x1f));
+      }
+
+      // Process in chunks to avoid stack overflow on large strings
+      let binaryStr = '';
+      const chunkSize = 8192;
+      for (let i = 0; i < xoredChars.length; i += chunkSize) {
+        binaryStr += String.fromCharCode(...xoredChars.slice(i, i + chunkSize));
+      }
+
+      const base64Payload = btoa(binaryStr);
+      const signature = computeIntegritySignature(base64Payload);
+      return `${VAULT_PREFIX}${signature}::${base64Payload}`;
+    } catch {
+      return jsonStr;
     }
-
-    // Process in chunks to avoid stack overflow on large strings
-    let binaryStr = '';
-    const chunkSize = 8192;
-    for (let i = 0; i < xoredChars.length; i += chunkSize) {
-      binaryStr += String.fromCharCode(...xoredChars.slice(i, i + chunkSize));
-    }
-
-    const base64Payload = btoa(binaryStr);
-    const signature = computeIntegritySignature(base64Payload);
-    return `${VAULT_PREFIX}${signature}::${base64Payload}`;
   } catch {
     return '';
   }

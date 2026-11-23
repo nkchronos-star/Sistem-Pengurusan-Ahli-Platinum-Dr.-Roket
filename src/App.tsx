@@ -41,6 +41,7 @@ import {
 } from './utils/security';
 import {
   DEFAULT_MALAYSIA_UNIVERSITIES,
+  derivePhaseFromDates,
   generateNextMemberUsername,
   normalizeUniversityName,
 } from './utils/helpers';
@@ -51,9 +52,11 @@ import {
 } from './lib/supabase';
 
 const STORAGE_KEY = 'dr_roket_platinium_system_v2';
+const ACTIVE_USER_SESSION_KEY = 'dr_roket_active_username_v2';
 const SESSION_TIMEOUT_MS = 30 * 60 * 1000; // 30 minutes auto-logout
 
 interface StoredSystemVault {
+  updatedAt?: number;
   members?: MemberProfile[];
   crmps?: CRMPProfile[];
   admins?: AdminProfile[];
@@ -67,10 +70,137 @@ interface StoredSystemVault {
   universities?: string[];
 }
 
+const LEGACY_USERNAME_MAP: Record<string, string> = {
+  APP0001: 'DR0001',
+  'DR0001-KAMARIAH': 'DR0001',
+  APP0002: 'DR0002',
+  'DR0002-FAIZ': 'DR0002',
+  APEP0001: 'DR0003',
+  'DR0003-HUDA': 'DR0003',
+  APE0001: 'DR0004',
+  'DR0004-FARAH': 'DR0004',
+  APP0003: 'DR0005',
+  'DR0005-SARAH': 'DR0005',
+  APEP0002: 'DR0006',
+  'DR0006-HAFIZ': 'DR0006',
+  APE0002: 'DR0007',
+  'DR0007-KHAIRUL': 'DR0007',
+  APE0003: 'DR0008',
+  'DR0008-NADIA': 'DR0008',
+};
+
+function normalizeShortMemberCode(rawCode: string, fallbackIndex?: number): string {
+  const upper = (rawCode || '').trim().toUpperCase();
+  if (LEGACY_USERNAME_MAP[upper]) {
+    return LEGACY_USERNAME_MAP[upper];
+  }
+  const drWithSuffixMatch = upper.match(/^(DR\d{4})-[A-Z0-9_-]+$/i);
+  if (drWithSuffixMatch) {
+    return drWithSuffixMatch[1].toUpperCase();
+  }
+  if (/^(APP|APEP|APE|APHR)\d+$/i.test(upper) && fallbackIndex !== undefined) {
+    return `DR${String(fallbackIndex + 1).padStart(4, '0')}`;
+  }
+  return rawCode;
+}
+
+function migrateVaultToFixedIds(
+  vault: StoredSystemVault | null
+): StoredSystemVault | null {
+  if (!vault) return null;
+  const codeMap: Record<string, string> = { ...LEGACY_USERNAME_MAP };
+
+  const migratedMembers = Array.isArray(vault.members)
+    ? vault.members.map((m, idx) => {
+        const upper = (m.username || '').trim().toUpperCase();
+        const nextUsername = normalizeShortMemberCode(m.username, idx);
+        codeMap[upper] = nextUsername;
+
+        // Segerakkan Fasa Kajian (currentPhase) dengan tarikh Master PhD Roadmap
+        const syncedPhaseInfo = m.dates
+          ? derivePhaseFromDates(m.dates)
+          : null;
+
+        return {
+          ...m,
+          username: nextUsername,
+          university: normalizeUniversityName(m.university),
+          currentPhase: syncedPhaseInfo ? syncedPhaseInfo.phase : m.currentPhase,
+        };
+      })
+    : undefined;
+
+  const mapCode = (code: string): string => {
+    const upper = (code || '').trim().toUpperCase();
+    return codeMap[upper] || normalizeShortMemberCode(code);
+  };
+
+  const migratedDrafts = Array.isArray(vault.drafts)
+    ? vault.drafts.map((d) => ({
+        ...d,
+        memberId: mapCode(d.memberId),
+        draftLink:
+          d.draftLink ||
+          `https://docs.google.com/document/d/draf-${d.draftNumber}-${mapCode(
+            d.memberId
+          ).toLowerCase()}/edit`,
+      }))
+    : undefined;
+
+  const migratedChecklists = Array.isArray(vault.checklists)
+    ? vault.checklists.map((c) => ({
+        ...c,
+        memberId: mapCode(c.memberId),
+      }))
+    : undefined;
+
+  const migratedVcVotes = Array.isArray(vault.vcVotes)
+    ? vault.vcVotes.map((v) => ({
+        ...v,
+        memberUsername: mapCode(v.memberUsername),
+      }))
+    : undefined;
+
+  const migratedThesisTalks = Array.isArray(vault.thesisTalks)
+    ? vault.thesisTalks.map((t) => ({
+        ...t,
+        memberUsername: mapCode(t.memberUsername),
+      }))
+    : undefined;
+
+  const migratedRecordings = Array.isArray(vault.recordings)
+    ? vault.recordings.map((r) => ({
+        ...r,
+        allowedMemberUsernames: Array.isArray(r.allowedMemberUsernames)
+          ? r.allowedMemberUsernames.map(mapCode)
+          : [],
+      }))
+    : undefined;
+
+  const migratedCrmps = Array.isArray(vault.crmps)
+    ? vault.crmps.map((c) => ({
+        ...c,
+        groupName: (c.groupName || '').replace(/Seliaan\s*/gi, '').trim(),
+      }))
+    : undefined;
+
+  return {
+    ...vault,
+    members: migratedMembers,
+    crmps: migratedCrmps,
+    drafts: migratedDrafts,
+    checklists: migratedChecklists,
+    vcVotes: migratedVcVotes,
+    thesisTalks: migratedThesisTalks,
+    recordings: migratedRecordings,
+  };
+}
+
 function loadInitialVault(): StoredSystemVault | null {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    return decryptVaultData<StoredSystemVault>(raw);
+    const parsed = decryptVaultData<StoredSystemVault>(raw);
+    return migrateVaultToFixedIds(parsed);
   } catch {
     return null;
   }
@@ -82,7 +212,7 @@ export default function App() {
   );
 
   const [members, setMembers] = useState<MemberProfile[]>(() => {
-    const rawList = initialVault?.members?.length
+    const rawList = Array.isArray(initialVault?.members)
       ? initialVault.members
       : INITIAL_MEMBERS;
     return rawList.map((m) => ({
@@ -92,37 +222,39 @@ export default function App() {
   });
 
   const [crmps, setCrmps] = useState<CRMPProfile[]>(() =>
-    initialVault?.crmps?.length ? initialVault.crmps : INITIAL_CRMPS
+    Array.isArray(initialVault?.crmps) ? initialVault.crmps : INITIAL_CRMPS
   );
 
   const [admins, setAdmins] = useState<AdminProfile[]>(() =>
-    initialVault?.admins?.length ? initialVault.admins : INITIAL_ADMINS
+    Array.isArray(initialVault?.admins) ? initialVault.admins : INITIAL_ADMINS
   );
 
   const [drafts, setDrafts] = useState<DraftSubmission[]>(() =>
-    initialVault?.drafts ? initialVault.drafts : INITIAL_DRAFTS
+    Array.isArray(initialVault?.drafts) ? initialVault.drafts : INITIAL_DRAFTS
   );
 
   const [checklists, setChecklists] = useState<WeeklyChecklist[]>(() =>
-    initialVault?.checklists
+    Array.isArray(initialVault?.checklists)
       ? initialVault.checklists
       : INITIAL_WEEKLY_CHECKLISTS
   );
 
   const [recordings, setRecordings] = useState<ClassRecording[]>(() =>
-    initialVault?.recordings?.length
+    Array.isArray(initialVault?.recordings)
       ? initialVault.recordings
       : INITIAL_RECORDINGS
   );
 
   const [thesisTalks, setThesisTalks] = useState<ThesisTalkItem[]>(() =>
-    initialVault?.thesisTalks
+    Array.isArray(initialVault?.thesisTalks)
       ? initialVault.thesisTalks
       : INITIAL_THESIS_TALKS
   );
 
   const [vcVotes, setVcVotes] = useState<VCVoteRecord[]>(() =>
-    initialVault?.vcVotes ? initialVault.vcVotes : INITIAL_VC_VOTES
+    Array.isArray(initialVault?.vcVotes)
+      ? initialVault.vcVotes
+      : INITIAL_VC_VOTES
   );
 
   const [vcSettings, setVcSettings] = useState<VCSystemSettings>(() =>
@@ -130,14 +262,14 @@ export default function App() {
   );
 
   const [crmpSchedules, setCrmpSchedules] = useState<CRMPDutySchedule[]>(() =>
-    initialVault?.crmpSchedules
+    Array.isArray(initialVault?.crmpSchedules)
       ? initialVault.crmpSchedules
       : INITIAL_CRMP_SCHEDULES
   );
 
   const [universities, setUniversities] = useState<string[]>(() => {
     const saved = initialVault?.universities;
-    if (saved && saved.length > 0) {
+    if (Array.isArray(saved) && saved.length > 0) {
       const normalizedSaved = saved.map((u) => normalizeUniversityName(u));
       return Array.from(
         new Set([...DEFAULT_MALAYSIA_UNIVERSITIES, ...normalizedSaved])
@@ -156,8 +288,28 @@ export default function App() {
     });
   };
 
-  const [currentUsername, setCurrentUsername] = useState<string | null>(null);
+  const [currentUsername, setCurrentUsername] = useState<string | null>(() => {
+    try {
+      const savedSession = sessionStorage.getItem(ACTIVE_USER_SESSION_KEY);
+      if (!savedSession) return null;
+      return normalizeShortMemberCode(savedSession);
+    } catch {
+      return null;
+    }
+  });
   const [securityToast, setSecurityToast] = useState<string | null>(null);
+
+  useEffect(() => {
+    try {
+      if (currentUsername) {
+        sessionStorage.setItem(ACTIVE_USER_SESSION_KEY, currentUsername);
+      } else {
+        sessionStorage.removeItem(ACTIVE_USER_SESSION_KEY);
+      }
+    } catch {
+      // ignore sessionStorage error
+    }
+  }, [currentUsername]);
 
   // Global Security Shield: Disable Right-Click (Context Menu), DevTools & Source Code Extraction Shortcuts
   useEffect(() => {
@@ -260,14 +412,20 @@ export default function App() {
     };
   }, [currentUsername]);
 
-  // Load initial data from Supabase on mount (if Supabase env vars are configured)
+  // Load initial data from Supabase on mount (only if remote is newer than local vault)
   useEffect(() => {
     if (!isSupabaseConfigured) return;
     let cancelled = false;
 
     fetchStateFromSupabase().then((remote) => {
       if (cancelled || !remote) return;
-      if (remote.members?.length) {
+      const localUpdatedAt = initialVault?.updatedAt || 0;
+      const remoteUpdatedAt =
+        (remote as StoredSystemVault).updatedAt || 0;
+      if (initialVault && remoteUpdatedAt <= localUpdatedAt) {
+        return;
+      }
+      if (Array.isArray(remote.members)) {
         setMembers(
           remote.members.map((m) => ({
             ...m,
@@ -275,16 +433,17 @@ export default function App() {
           }))
         );
       }
-      if (remote.crmps?.length) setCrmps(remote.crmps);
-      if (remote.admins?.length) setAdmins(remote.admins);
-      if (remote.drafts) setDrafts(remote.drafts);
-      if (remote.checklists) setChecklists(remote.checklists);
-      if (remote.recordings?.length) setRecordings(remote.recordings);
-      if (remote.thesisTalks) setThesisTalks(remote.thesisTalks);
-      if (remote.vcVotes) setVcVotes(remote.vcVotes);
+      if (Array.isArray(remote.crmps)) setCrmps(remote.crmps);
+      if (Array.isArray(remote.admins)) setAdmins(remote.admins);
+      if (Array.isArray(remote.drafts)) setDrafts(remote.drafts);
+      if (Array.isArray(remote.checklists)) setChecklists(remote.checklists);
+      if (Array.isArray(remote.recordings)) setRecordings(remote.recordings);
+      if (Array.isArray(remote.thesisTalks)) setThesisTalks(remote.thesisTalks);
+      if (Array.isArray(remote.vcVotes)) setVcVotes(remote.vcVotes);
       if (remote.vcSettings) setVcSettings(remote.vcSettings);
-      if (remote.crmpSchedules) setCrmpSchedules(remote.crmpSchedules);
-      if (remote.universities?.length) {
+      if (Array.isArray(remote.crmpSchedules))
+        setCrmpSchedules(remote.crmpSchedules);
+      if (Array.isArray(remote.universities) && remote.universities.length) {
         const normalizedRemoteUnis = remote.universities.map((u) =>
           normalizeUniversityName(u)
         );
@@ -299,11 +458,12 @@ export default function App() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [initialVault]);
 
   // Encrypted & Integrity-Signed Vault Persistence + Auto-Sync to Supabase
   useEffect(() => {
     const payload = {
+      updatedAt: Date.now(),
       members,
       crmps,
       admins,
@@ -349,10 +509,15 @@ export default function App() {
   // --- AUTH HANDLERS ---
   const handleLogin = (rawUsername: string, rawPassword?: string): boolean => {
     const clean = rawUsername.trim();
+    const cleanLower = clean.toLowerCase();
+    const normalizedInputLower = normalizeShortMemberCode(clean).toLowerCase();
     const passInput = (rawPassword ?? 'drroket2026').trim();
 
+    // Log masuk menggunakan ID Pengguna sahaja (cth: DR0001, CRMP001, admin001)
     const matchedMember = members.find(
-      (m) => m.username.toLowerCase() === clean.toLowerCase()
+      (m) =>
+        m.username.toLowerCase() === cleanLower ||
+        m.username.toLowerCase() === normalizedInputLower
     );
     if (matchedMember) {
       const expectedPass = matchedMember.password || 'drroket2026';
@@ -362,7 +527,7 @@ export default function App() {
     }
 
     const matchedCrmp = crmps.find(
-      (c) => c.username.toLowerCase() === clean.toLowerCase()
+      (c) => c.username.toLowerCase() === cleanLower
     );
     if (matchedCrmp) {
       const expectedPass = matchedCrmp.password || 'drroket2026';
@@ -372,7 +537,7 @@ export default function App() {
     }
 
     const matchedAdmin = admins.find(
-      (a) => a.username.toLowerCase() === clean.toLowerCase()
+      (a) => a.username.toLowerCase() === cleanLower
     );
     if (matchedAdmin) {
       const expectedPass = matchedAdmin.password || 'drroket2026';
@@ -395,11 +560,15 @@ export default function App() {
     roleLabel?: string;
   } => {
     const clean = sanitizeDataPayload(usernameOrEmail.trim().toLowerCase());
+    const mappedLegacy = LEGACY_USERNAME_MAP[clean.toUpperCase()]?.toLowerCase();
     const cleanTemp = sanitizeDataPayload(tempPassword.trim());
 
     const matchedMember = members.find(
       (m) =>
-        m.username.toLowerCase() === clean || m.email.toLowerCase() === clean
+        m.username.toLowerCase() === clean ||
+        m.email.toLowerCase() === clean ||
+        m.username.split('-')[0].toLowerCase() === clean ||
+        (mappedLegacy && m.username.toLowerCase() === mappedLegacy)
     );
     if (matchedMember) {
       setMembers((prev) =>
@@ -472,7 +641,8 @@ export default function App() {
   }): MemberProfile => {
     const generatedUsername = generateNextMemberUsername(
       data.package,
-      members
+      members,
+      data.name
     );
 
     const newMember: MemberProfile = {
@@ -558,23 +728,41 @@ export default function App() {
 
   // --- MEMBER MUTATIONS (Sanitized against XSS & Injection) ---
   const handleUpdateMember = (updated: MemberProfile) => {
-    const clean = sanitizeDataPayload(updated);
+    const clean = sanitizeDataPayload({
+      ...updated,
+      university: normalizeUniversityName(updated.university),
+    });
     setMembers((prev) =>
-      prev.map((m) => (m.id === clean.id ? clean : m))
+      prev.map((m) =>
+        m.id === clean.id ||
+        m.username.toLowerCase() === clean.username.toLowerCase()
+          ? clean
+          : m
+      )
     );
   };
 
   const handleUpdateCrmp = (updated: CRMPProfile) => {
     const clean = sanitizeDataPayload(updated);
     setCrmps((prev) =>
-      prev.map((c) => (c.id === clean.id ? clean : c))
+      prev.map((c) =>
+        c.id === clean.id ||
+        c.username.toLowerCase() === clean.username.toLowerCase()
+          ? clean
+          : c
+      )
     );
   };
 
   const handleUpdateAdmin = (updated: AdminProfile) => {
     const clean = sanitizeDataPayload(updated);
     setAdmins((prev) =>
-      prev.map((a) => (a.id === clean.id ? clean : a))
+      prev.map((a) =>
+        a.id === clean.id ||
+        a.username.toLowerCase() === clean.username.toLowerCase()
+          ? clean
+          : a
+      )
     );
   };
 

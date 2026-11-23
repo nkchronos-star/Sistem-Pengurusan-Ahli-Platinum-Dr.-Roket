@@ -58,6 +58,7 @@ import {
   computeAutoWeekFromDate,
   createBlankWeeklyChecklist,
   DEFAULT_MALAYSIA_UNIVERSITIES,
+  derivePhaseFromDates,
   getDayReminderScheduleLabel,
   getDefaultSubtopicsForChapter,
   getMalayDayNameFromDateStr,
@@ -67,9 +68,13 @@ import {
   lookupMalaysiaPostcode,
   normalizeUniversityName,
   STANDARD_AVATAR_SIZE,
+  syncDatesToMatchPhase,
 } from '../utils/helpers';
 import { AvatarUploadModal } from './AvatarUploadModal';
-import { MasterPhdRoadmap } from './MasterPhdRoadmap';
+import {
+  MasterPhdRoadmap,
+  ScholarCharacterAvatar,
+} from './MasterPhdRoadmap';
 import { PasswordChangeModal } from './PasswordChangeModal';
 
 interface MemberDashboardProps {
@@ -101,7 +106,6 @@ type MemberTab =
   | 'profile'
   | 'roadmap'
   | 'publications'
-  | 'progress'
   | 'checklist'
   | 'drafts'
   | 'thesis_map'
@@ -146,7 +150,7 @@ export const MemberDashboard: React.FC<MemberDashboardProps> = ({
   };
 
   const handleSaveMemberPassword = (newPassword: string) => {
-    const updated = { ...profileForm, password: newPassword };
+    const updated = { ...member, ...profileForm, password: newPassword };
     setProfileForm(updated);
     onUpdateMember(updated);
     showToast('Kata laluan akaun anda telah berjaya dikemaskini.');
@@ -159,26 +163,76 @@ export const MemberDashboard: React.FC<MemberDashboardProps> = ({
   const latestDraft = memberDrafts[0];
 
   // --- 1. PROFILE & PUBLICATION STATE ---
-  const [profileForm, setProfileForm] = useState<MemberProfile>(() => ({
-    ...member,
-    university: normalizeUniversityName(member.university),
-    studyLevel: member.studyLevel || 'PhD',
-    researchField:
-      member.researchField || 'Pendidikan & Inovasi Penyelidikan',
-    supervisor2: member.supervisor2 || '',
-    supervisor3: member.supervisor3 || '',
-    address: member.address || member.residence.split(',')[0] || '',
-    postcode: member.postcode || '',
-    district: member.district || '',
-    state: member.state || '',
-    dates: {
-      ...member.dates,
-      convocation: member.dates.convocation || '2027-11-25',
-    },
-  }));
+  const buildNormalizedProfileForm = (m: MemberProfile): MemberProfile => {
+    const normalizedDates = {
+      ...m.dates,
+      convocation: m.dates.convocation || '2027-11-25',
+    };
+    const syncedPhaseInfo = derivePhaseFromDates(
+      normalizedDates,
+      TODAY_DATE_STR
+    );
+    return {
+      ...m,
+      university: normalizeUniversityName(m.university),
+      studyLevel: m.studyLevel || 'PhD',
+      researchField:
+        m.researchField || 'Pendidikan & Inovasi Penyelidikan',
+      supervisor2: m.supervisor2 || '',
+      supervisor3: m.supervisor3 || '',
+      address: m.address || m.residence.split(',')[0] || '',
+      postcode: m.postcode || '',
+      district: m.district || '',
+      state: m.state || '',
+      currentPhase: syncedPhaseInfo.phase,
+      dates: normalizedDates,
+    };
+  };
+
+  const [profileForm, setProfileForm] = useState<MemberProfile>(() =>
+    buildNormalizedProfileForm(member)
+  );
   const [showAddUniInput, setShowAddUniInput] = useState(false);
   const [newUniInput, setNewUniInput] = useState('');
   const [postcodeAutoMatched, setPostcodeAutoMatched] = useState(false);
+
+  const commitProfileChanges = (
+    patch: Partial<MemberProfile>
+  ): MemberProfile => {
+    const nextUniversity = normalizeUniversityName(
+      patch.university ?? profileForm.university ?? member.university
+    );
+    const merged: MemberProfile = {
+      ...member,
+      ...profileForm,
+      ...patch,
+      university: nextUniversity,
+    };
+    setProfileForm(merged);
+    onUpdateMember(merged);
+    return merged;
+  };
+
+  // Pastikan Fasa Kajian (currentPhase) sentiasa selari dengan tarikh Master PhD Roadmap
+  useEffect(() => {
+    const synced = derivePhaseFromDates(member.dates, TODAY_DATE_STR);
+    if (member.currentPhase !== synced.phase) {
+      onUpdateMember({
+        ...member,
+        currentPhase: synced.phase,
+      });
+    }
+  }, [
+    member.id,
+    member.currentPhase,
+    member.dates.earlyRegistration,
+    member.dates.registerPD,
+    member.dates.dataCollectionAnalysis,
+    member.dates.nos,
+    member.dates.thesisSubmission,
+    member.dates.viva,
+    member.dates.convocation,
+  ]);
 
   // Combine default + saved universities + current member's university in "Nama Penuh (Singkatan)" format
   const availableUniversities = Array.from(
@@ -197,9 +251,7 @@ export const MemberDashboard: React.FC<MemberDashboardProps> = ({
     if (onAddUniversity) {
       onAddUniversity(clean);
     }
-    const updated = { ...profileForm, university: clean };
-    setProfileForm(updated);
-    onUpdateMember(updated);
+    commitProfileChanges({ university: clean });
     setNewUniInput('');
     setShowAddUniInput(false);
     showToast(
@@ -225,8 +277,7 @@ export const MemberDashboard: React.FC<MemberDashboardProps> = ({
       .filter(Boolean)
       .join(', ');
 
-    setProfileForm({
-      ...profileForm,
+    commitProfileChanges({
       address: newAddress,
       postcode: digits,
       district: nextDistrict,
@@ -246,9 +297,7 @@ export const MemberDashboard: React.FC<MemberDashboardProps> = ({
   const [pubLink, setPubLink] = useState('');
 
   const handleSaveAvatar = (newAvatar: string) => {
-    const updated = { ...profileForm, avatar: newAvatar };
-    setProfileForm(updated);
-    onUpdateMember(updated);
+    commitProfileChanges({ avatar: newAvatar });
     showToast(
       'Gambar profil (300×300 px) berjaya dikemaskini dan disimpan.'
     );
@@ -256,9 +305,9 @@ export const MemberDashboard: React.FC<MemberDashboardProps> = ({
 
   const handleSaveProfile = (e: React.FormEvent) => {
     e.preventDefault();
-    onUpdateMember(profileForm);
+    commitProfileChanges(profileForm);
     showToast(
-      'Maklumat Profil Diri & Master PhD Roadmap berjaya dikemaskini.'
+      'Maklumat Profil Diri berjaya dikemaskini.'
     );
   };
 
@@ -314,9 +363,7 @@ export const MemberDashboard: React.FC<MemberDashboardProps> = ({
       };
       updatedPubs = [...member.publications, newPub];
     }
-    const updatedMember = { ...member, publications: updatedPubs };
-    setProfileForm(updatedMember);
-    onUpdateMember(updatedMember);
+    commitProfileChanges({ publications: updatedPubs });
     setPubModalOpen(false);
     showToast(
       editingPub
@@ -327,9 +374,7 @@ export const MemberDashboard: React.FC<MemberDashboardProps> = ({
 
   const handleDeletePublication = (pubId: string) => {
     const updatedPubs = member.publications.filter((p) => p.id !== pubId);
-    const updatedMember = { ...member, publications: updatedPubs };
-    setProfileForm(updatedMember);
-    onUpdateMember(updatedMember);
+    commitProfileChanges({ publications: updatedPubs });
     showToast('Rekod penerbitan telah dipadam.');
   };
 
@@ -487,6 +532,7 @@ export const MemberDashboard: React.FC<MemberDashboardProps> = ({
     latestDraft?.affirmationText ||
       'Tesis saya siap dengan cemerlang dan memberi manfaat besar sebelum tarikh TTB!'
   );
+  const [draftLinkInput, setDraftLinkInput] = useState('');
   const [draftMemberNotes, setDraftMemberNotes] = useState('');
   const [selectedDraftDetailId, setSelectedDraftDetailId] = useState<
     string | null
@@ -494,9 +540,21 @@ export const MemberDashboard: React.FC<MemberDashboardProps> = ({
   const [draftNotesEditMap, setDraftNotesEditMap] = useState<
     Record<string, string>
   >({});
+  const [draftLinksEditMap, setDraftLinksEditMap] = useState<
+    Record<string, string>
+  >({});
+
+  const normalizeOptionalUrl = (raw: string): string => {
+    const trimmed = raw.trim();
+    if (!trimmed) return '';
+    return trimmed.startsWith('http://') || trimmed.startsWith('https://')
+      ? trimmed
+      : `https://${trimmed}`;
+  };
 
   const handleAddDraftSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    const cleanLink = normalizeOptionalUrl(draftLinkInput);
     onAddDraft({
       memberId: member.username,
       ttb: draftTtb,
@@ -514,12 +572,16 @@ export const MemberDashboard: React.FC<MemberDashboardProps> = ({
         targetNextDraft.trim() || `Draf ${Number(draftNum) + 1} dalam 2 minggu`,
       updateAffirmationCard: updAffirmation,
       affirmationText,
+      draftLink: cleanLink || undefined,
       memberNotes: draftMemberNotes.trim(),
     });
     setDraftNum(Number(draftNum) + 1);
     setTargetNextDraft('');
+    setDraftLinkInput('');
     setDraftMemberNotes('');
-    showToast(`Tahniah! Maklumat kenaikan Draf ke-${draftNum} telah berjaya direkodkan.`);
+    showToast(
+      `Tahniah! Maklumat kenaikan Draf ke-${draftNum} telah berjaya direkodkan.`
+    );
   };
 
   const handleSaveExistingDraftNote = (draft: DraftSubmission) => {
@@ -527,14 +589,20 @@ export const MemberDashboard: React.FC<MemberDashboardProps> = ({
       draftNotesEditMap[draft.id] !== undefined
         ? draftNotesEditMap[draft.id]
         : draft.memberNotes || '';
+    const rawLink =
+      draftLinksEditMap[draft.id] !== undefined
+        ? draftLinksEditMap[draft.id]
+        : draft.draftLink || '';
+    const cleanLink = normalizeOptionalUrl(rawLink);
     if (onUpdateDraft) {
       onUpdateDraft({
         ...draft,
+        draftLink: cleanLink || undefined,
         memberNotes: newNote.trim(),
       });
     }
     showToast(
-      `Catatan untuk Draf Ke-${draft.draftNumber} telah berjaya disimpan.`
+      `Link & catatan untuk Draf Ke-${draft.draftNumber} telah berjaya disimpan.`
     );
   };
 
@@ -558,6 +626,44 @@ export const MemberDashboard: React.FC<MemberDashboardProps> = ({
   const [newSubtopicInputs, setNewSubtopicInputs] = useState<
     Record<string, string>
   >({});
+
+  // Sync local profileForm, researchTitleMapInput & chapters when member prop updates externally
+  useEffect(() => {
+    setProfileForm(buildNormalizedProfileForm(member));
+    setResearchTitleMapInput(member.researchTitle);
+    setChapters(
+      member.thesisMap.map((ch) => ({
+        ...ch,
+        subtopics:
+          ch.subtopics && ch.subtopics.length > 0
+            ? ch.subtopics
+            : getDefaultSubtopicsForChapter(
+                ch.chapterNumber,
+                ch.status === 'Selesai' || ch.progress === 100
+              ),
+      }))
+    );
+  }, [member]);
+
+  const syncThesisMapLive = (
+    nextChapters: ThesisChapter[],
+    nextResearchTitle?: string
+  ) => {
+    setChapters(nextChapters);
+    const avgProgress = Math.round(
+      nextChapters.reduce((acc, c) => acc + Number(c.progress), 0) /
+        Math.max(1, nextChapters.length)
+    );
+    const resolvedTitle =
+      (nextResearchTitle ?? researchTitleMapInput).trim() ||
+      profileForm.researchTitle ||
+      member.researchTitle;
+    commitProfileChanges({
+      researchTitle: resolvedTitle,
+      thesisMap: nextChapters,
+      overallProgress: avgProgress,
+    });
+  };
 
   const recalculateChapterProgressFromSubtopics = (
     subs: ThesisSubtopic[],
@@ -595,7 +701,7 @@ export const MemberDashboard: React.FC<MemberDashboardProps> = ({
           }
         : ch
     );
-    setChapters(updated);
+    syncThesisMapLive(updated);
   };
 
   const handleAddSubtopic = (chapterId: string) => {
@@ -624,7 +730,7 @@ export const MemberDashboard: React.FC<MemberDashboardProps> = ({
         lastUpdated: TODAY_DATE_STR,
       };
     });
-    setChapters(updated);
+    syncThesisMapLive(updated);
     setNewSubtopicInputs((prev) => ({ ...prev, [chapterId]: '' }));
   };
 
@@ -649,7 +755,7 @@ export const MemberDashboard: React.FC<MemberDashboardProps> = ({
         lastUpdated: TODAY_DATE_STR,
       };
     });
-    setChapters(updated);
+    syncThesisMapLive(updated);
   };
 
   const handleUpdateSubtopicTitle = (
@@ -664,7 +770,7 @@ export const MemberDashboard: React.FC<MemberDashboardProps> = ({
       );
       return { ...ch, subtopics: nextSubs, lastUpdated: TODAY_DATE_STR };
     });
-    setChapters(updated);
+    syncThesisMapLive(updated);
   };
 
   const handleDeleteSubtopic = (chapterId: string, subtopicId: string) => {
@@ -688,7 +794,7 @@ export const MemberDashboard: React.FC<MemberDashboardProps> = ({
         lastUpdated: TODAY_DATE_STR,
       };
     });
-    setChapters(updated);
+    syncThesisMapLive(updated);
   };
 
   const handleAddExtraChapter = () => {
@@ -707,13 +813,8 @@ export const MemberDashboard: React.FC<MemberDashboardProps> = ({
       subtopics: getDefaultSubtopicsForChapter(nextNum, false),
     };
     const updated = [...chapters, newCh];
-    setChapters(updated);
     setNewChapterTitle('');
-    onUpdateMember({
-      ...member,
-      researchTitle: researchTitleMapInput.trim() || member.researchTitle,
-      thesisMap: updated,
-    });
+    syncThesisMapLive(updated);
     showToast(
       `Bab ${nextNum} bersama subtopik telah ditambah ke dalam Thesis Map.`
     );
@@ -731,24 +832,12 @@ export const MemberDashboard: React.FC<MemberDashboardProps> = ({
           code: `${idx + 1}.${sIdx + 1}`,
         })),
       }));
-    setChapters(filtered);
-    onUpdateMember({ ...member, thesisMap: filtered });
+    syncThesisMapLive(filtered);
     showToast('Bab tambahan telah dipadam.');
   };
 
   const handleSaveThesisMap = () => {
-    const avgProgress = Math.round(
-      chapters.reduce((acc, c) => acc + Number(c.progress), 0) /
-        Math.max(1, chapters.length)
-    );
-    const updatedMember: MemberProfile = {
-      ...member,
-      researchTitle: researchTitleMapInput.trim() || member.researchTitle,
-      thesisMap: chapters,
-      overallProgress: avgProgress,
-    };
-    setProfileForm(updatedMember);
-    onUpdateMember(updatedMember);
+    syncThesisMapLive(chapters, researchTitleMapInput);
     showToast(
       'Thesis Map (Tajuk Kajian, Bab & Subtopik) telah dikemaskini dan dijana sebagai Peta Visual!'
     );
@@ -960,12 +1049,7 @@ export const MemberDashboard: React.FC<MemberDashboardProps> = ({
       ? existingList.map((lp) => (lp.recordingId === rec.id ? nextEntry : lp))
       : [nextEntry, ...existingList];
 
-    const updatedMember: MemberProfile = {
-      ...member,
-      learningPoints: updatedList,
-    };
-    setProfileForm((prev) => ({ ...prev, learningPoints: updatedList }));
-    onUpdateMember(updatedMember);
+    commitProfileChanges({ learningPoints: updatedList });
     setLpEditingRecId(null);
     setLpLinkInput('');
     showToast(
@@ -985,12 +1069,7 @@ export const MemberDashboard: React.FC<MemberDashboardProps> = ({
     const updatedList = (member.learningPoints || []).filter(
       (lp) => lp.recordingId !== recId
     );
-    const updatedMember: MemberProfile = {
-      ...member,
-      learningPoints: updatedList,
-    };
-    setProfileForm((prev) => ({ ...prev, learningPoints: updatedList }));
-    onUpdateMember(updatedMember);
+    commitProfileChanges({ learningPoints: updatedList });
     if (lpEditingRecId === recId) {
       setLpEditingRecId(null);
       setLpLinkInput('');
@@ -1038,9 +1117,9 @@ export const MemberDashboard: React.FC<MemberDashboardProps> = ({
       icon: <GraduationCap className="w-4 h-4 shrink-0" />,
     },
     {
-      id: 'progress',
-      label: 'Progress Kajian',
-      icon: <TrendingUp className="w-4 h-4 shrink-0" />,
+      id: 'publications',
+      label: 'Publication',
+      icon: <BookOpen className="w-4 h-4 shrink-0" />,
     },
     {
       id: 'checklist',
@@ -1083,25 +1162,25 @@ export const MemberDashboard: React.FC<MemberDashboardProps> = ({
     .toUpperCase();
 
   return (
-    <div className="min-h-screen bg-slate-100 text-slate-900 flex flex-col lg:flex-row">
-      {/* Collapsible Sidebar (Boleh Buka & Tutup) */}
+    <div className="min-h-screen bg-gradient-to-br from-[#f5f3ff] via-[#fdf2f8]/70 to-[#eef2ff] text-slate-900 flex flex-col lg:flex-row">
+      {/* Collapsible Sidebar — Tema Ungu Diraja Ceria & Profesional */}
       <aside
         className={`${
           sidebarOpen ? 'w-full lg:w-64' : 'w-full lg:w-20'
-        } bg-slate-900 text-slate-100 flex flex-col justify-between shrink-0 transition-all duration-200 border-r border-slate-800`}
+        } bg-gradient-to-b from-[#2e1065] via-[#3b0764] to-[#1e1b4b] text-slate-100 flex flex-col justify-between shrink-0 transition-all duration-200 border-r border-purple-900/60 shadow-xl`}
       >
         <div>
-          <div className="p-4 border-b border-slate-800 flex items-center justify-between gap-2">
+          <div className="p-4 border-b border-purple-800/60 flex items-center justify-between gap-2">
             <div className="flex items-center gap-2.5 overflow-hidden">
-              <div className="w-9 h-9 rounded-lg bg-indigo-600 text-white flex items-center justify-center shrink-0">
+              <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-pink-500 to-amber-400 text-white flex items-center justify-center shrink-0 shadow-md">
                 <Rocket className="w-5 h-5" />
               </div>
               {sidebarOpen && (
                 <div className="min-w-0">
-                  <div className="text-sm font-bold tracking-tight text-white truncate">
+                  <div className="text-sm font-black tracking-tight text-white truncate">
                     DR. ROKET
                   </div>
-                  <div className="text-[11px] text-slate-400 truncate">
+                  <div className="text-[11px] text-purple-200 truncate font-medium">
                     Ahli Platinum
                   </div>
                 </div>
@@ -1111,7 +1190,7 @@ export const MemberDashboard: React.FC<MemberDashboardProps> = ({
               type="button"
               onClick={() => setSidebarOpen(!sidebarOpen)}
               title={sidebarOpen ? 'Tutup Sidebar' : 'Buka Sidebar'}
-              className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer shrink-0"
+              className="p-1.5 rounded-lg text-purple-200 hover:text-white hover:bg-purple-800/60 transition-colors cursor-pointer shrink-0"
             >
               {sidebarOpen ? (
                 <PanelLeftClose className="w-4 h-4" />
@@ -1130,10 +1209,10 @@ export const MemberDashboard: React.FC<MemberDashboardProps> = ({
                 title={!sidebarOpen ? item.label : undefined}
                 className={`flex items-center ${
                   sidebarOpen ? 'gap-3 px-3.5' : 'justify-center px-2'
-                } py-2.5 rounded-xl text-xs font-medium transition-colors whitespace-nowrap shrink-0 cursor-pointer w-full ${
+                } py-2.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap shrink-0 cursor-pointer w-full ${
                   activeTab === item.id
-                    ? 'bg-pink-600 text-white shadow-sm'
-                    : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+                    ? 'bg-gradient-to-r from-pink-500 to-rose-500 text-white shadow-md shadow-pink-500/30'
+                    : 'text-purple-100/85 hover:bg-purple-800/50 hover:text-white'
                 }`}
               >
                 {item.icon}
@@ -1143,8 +1222,8 @@ export const MemberDashboard: React.FC<MemberDashboardProps> = ({
           </nav>
         </div>
 
-        {/* Bottom Sidebar Profile Section (Avatar 300x300 / Link Gambar + Nama + Pakej) */}
-        <div className="p-3.5 border-t border-slate-800 bg-slate-950/40 space-y-3">
+        {/* Bottom Sidebar Profile Section (Watak Ahli / Avatar 300x300 + ID Tetap + Pakej) */}
+        <div className="p-3.5 border-t border-purple-800/60 bg-black/20 space-y-3">
           <div
             className={`flex items-center ${
               sidebarOpen ? 'gap-3' : 'justify-center'
@@ -1154,20 +1233,13 @@ export const MemberDashboard: React.FC<MemberDashboardProps> = ({
               type="button"
               onClick={() => setAvatarModalOpen(true)}
               title="Klik untuk muat naik fail gambar (300×300 px) atau masukkan link gambar"
-              className="relative group w-10 h-10 rounded-full shrink-0 cursor-pointer focus:outline-none"
+              className="relative group rounded-full shrink-0 cursor-pointer focus:outline-none"
             >
-              {member.avatar ? (
-                <img
-                  src={member.avatar}
-                  alt={member.name}
-                  referrerPolicy="no-referrer"
-                  className="w-10 h-10 rounded-full object-cover border border-amber-400"
-                />
-              ) : (
-                <div className="w-10 h-10 rounded-full bg-amber-400 text-slate-950 font-bold text-xs flex items-center justify-center">
-                  {memberInitials}
-                </div>
-              )}
+              <ScholarCharacterAvatar
+                member={member}
+                size="sm"
+                showPhotoIfAvailable
+              />
               <div className="absolute inset-0 rounded-full bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                 <Camera className="w-4 h-4 text-white" />
               </div>
@@ -1175,11 +1247,11 @@ export const MemberDashboard: React.FC<MemberDashboardProps> = ({
 
             {sidebarOpen && (
               <div className="min-w-0 flex-1">
-                <div className="text-sm font-semibold text-white truncate">
+                <div className="text-sm font-bold text-white truncate">
                   {member.name}
                 </div>
-                <div className="text-xs text-slate-400 truncate">
-                  {member.package} · {member.username}
+                <div className="text-xs text-purple-200 font-mono truncate">
+                  {member.username} · {member.package}
                 </div>
               </div>
             )}
@@ -1191,7 +1263,7 @@ export const MemberDashboard: React.FC<MemberDashboardProps> = ({
                 <button
                   type="button"
                   onClick={() => setAvatarModalOpen(true)}
-                  className="flex-1 py-1.5 px-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 text-[11px] font-medium rounded-lg flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                  className="flex-1 py-1.5 px-2.5 bg-purple-900/70 hover:bg-purple-800 text-purple-100 text-[11px] font-semibold rounded-lg flex items-center justify-center gap-1.5 transition-colors cursor-pointer border border-purple-700/60"
                 >
                   <Upload className="w-3 h-3" />
                   Gambar
@@ -1199,7 +1271,7 @@ export const MemberDashboard: React.FC<MemberDashboardProps> = ({
                 <button
                   type="button"
                   onClick={() => setPasswordModalOpen(true)}
-                  className="flex-1 py-1.5 px-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 text-[11px] font-medium rounded-lg flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                  className="flex-1 py-1.5 px-2.5 bg-purple-900/70 hover:bg-purple-800 text-purple-100 text-[11px] font-semibold rounded-lg flex items-center justify-center gap-1.5 transition-colors cursor-pointer border border-purple-700/60"
                 >
                   <KeyRound className="w-3 h-3" />
                   Password
@@ -1209,7 +1281,7 @@ export const MemberDashboard: React.FC<MemberDashboardProps> = ({
                 type="button"
                 onClick={onLogout}
                 title="Log Keluar"
-                className="w-full py-1.5 px-2.5 bg-slate-800 hover:bg-red-900/60 text-slate-300 hover:text-white text-[11px] font-medium rounded-lg flex items-center justify-center gap-1 transition-colors cursor-pointer"
+                className="w-full py-1.5 px-2.5 bg-purple-900/70 hover:bg-rose-600 text-purple-100 hover:text-white text-[11px] font-semibold rounded-lg flex items-center justify-center gap-1 transition-colors cursor-pointer border border-purple-700/60"
               >
                 <LogOut className="w-3.5 h-3.5" />
                 Log Keluar
@@ -1221,7 +1293,7 @@ export const MemberDashboard: React.FC<MemberDashboardProps> = ({
                 type="button"
                 onClick={() => setPasswordModalOpen(true)}
                 title="Tukar Kata Laluan"
-                className="w-full py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded-lg flex items-center justify-center cursor-pointer"
+                className="w-full py-2 bg-purple-900/70 hover:bg-purple-800 text-purple-200 hover:text-white rounded-lg flex items-center justify-center cursor-pointer"
               >
                 <KeyRound className="w-4 h-4" />
               </button>
@@ -1229,7 +1301,7 @@ export const MemberDashboard: React.FC<MemberDashboardProps> = ({
                 type="button"
                 onClick={onLogout}
                 title="Log Keluar"
-                className="w-full py-2 bg-slate-800 hover:bg-red-900/60 text-slate-300 hover:text-white rounded-lg flex items-center justify-center cursor-pointer"
+                className="w-full py-2 bg-purple-900/70 hover:bg-rose-600 text-purple-200 hover:text-white rounded-lg flex items-center justify-center cursor-pointer"
               >
                 <LogOut className="w-4 h-4" />
               </button>
@@ -1240,12 +1312,12 @@ export const MemberDashboard: React.FC<MemberDashboardProps> = ({
 
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col min-w-0">
-        <header className="bg-slate-900 text-white px-6 py-4 flex items-center justify-between gap-8 border-b border-slate-800">
+        <header className="bg-gradient-to-r from-[#2e1065] via-[#4c1d95] to-[#3b0764] text-white px-6 py-4 flex items-center justify-between gap-8 border-b border-purple-800/70 shadow-md">
           <div className="space-y-1">
-            <h1 className="text-base sm:text-lg font-bold tracking-tight">
+            <h1 className="text-base sm:text-xl font-black tracking-tight">
               Dashboard Ahli Platinum
             </h1>
-            <div className="flex items-center gap-2 text-xs text-slate-300">
+            <div className="flex flex-wrap items-center gap-2 text-xs text-purple-100">
               {memberCrmp?.avatar &&
               (memberCrmp.avatar.startsWith('data:image') ||
                 memberCrmp.avatar.startsWith('http') ||
@@ -1254,22 +1326,25 @@ export const MemberDashboard: React.FC<MemberDashboardProps> = ({
                   src={memberCrmp.avatar}
                   alt={memberCrmp.name}
                   referrerPolicy="no-referrer"
-                  className="w-6 h-6 rounded-full object-cover border border-slate-600 shrink-0"
+                  className="w-6 h-6 rounded-full object-cover border border-pink-300 shrink-0"
                 />
               ) : (
-                <div className="w-6 h-6 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center text-slate-300 shrink-0">
+                <div className="w-6 h-6 rounded-full bg-purple-800 border border-purple-600 flex items-center justify-center text-purple-100 shrink-0">
                   <User className="w-3.5 h-3.5" />
                 </div>
               )}
               <span>
                 CRMP :{' '}
-                <strong className="font-semibold text-white">
+                <strong className="font-bold text-white">
                   {memberCrmp
                     ? memberCrmp.username === 'CRMP001'
                       ? 'Dr. Mardhiyati Yunus'
                       : memberCrmp.name
                     : 'Dr. Mardhiyati Yunus'}
                 </strong>
+              </span>
+              <span className="px-2 py-0.5 rounded-full bg-white/15 text-amber-300 font-mono text-[11px] font-bold">
+                ID Tetap: {member.username}
               </span>
             </div>
           </div>
@@ -1278,7 +1353,7 @@ export const MemberDashboard: React.FC<MemberDashboardProps> = ({
             <button
               type="button"
               onClick={() => setActiveTab('vc_attendance')}
-              className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold rounded-xl transition-colors whitespace-nowrap shrink-0 cursor-pointer"
+              className="px-4 py-2 bg-gradient-to-r from-pink-500 to-rose-500 hover:from-pink-600 hover:to-rose-600 text-white text-xs font-bold rounded-xl shadow-md shadow-pink-500/25 transition-all whitespace-nowrap shrink-0 cursor-pointer"
             >
               Vote VC (6:20 PM)
             </button>
@@ -1286,7 +1361,7 @@ export const MemberDashboard: React.FC<MemberDashboardProps> = ({
         </header>
 
         {toastMsg && (
-          <div className="mx-6 mt-4 p-3 rounded-xl bg-emerald-900 text-white text-xs font-medium flex items-center justify-between">
+          <div className="mx-6 mt-4 p-3 rounded-xl bg-emerald-900 text-white text-xs font-medium flex items-center justify-between shadow-md">
             <span>{toastMsg}</span>
             <button
               type="button"
@@ -1301,7 +1376,7 @@ export const MemberDashboard: React.FC<MemberDashboardProps> = ({
         <main className="p-6 space-y-6 max-w-7xl w-full mx-auto">
           {/* Peringatan Ringkas Checklist Belum Di-tick (Tanpa Butang WhatsApp) */}
           {missingItemsForSelectedDay.length > 0 && (
-            <div className="bg-amber-50 border border-amber-300 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="bg-amber-50 border border-amber-300 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
               <div className="flex items-start gap-3">
                 <Bell className="w-5 h-5 text-amber-700 shrink-0 mt-0.5" />
                 <div className="space-y-0.5">
@@ -1335,99 +1410,117 @@ export const MemberDashboard: React.FC<MemberDashboardProps> = ({
           {/* ========================================== */}
           {activeTab === 'overview' && (
             <div className="space-y-6">
-              <div className="bg-white border border-slate-200 rounded-2xl p-6 space-y-6 shadow-xs">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-5">
+              <div className="bg-white/95 border border-purple-200/80 rounded-3xl p-6 space-y-6 shadow-md shadow-purple-900/5">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-purple-100 pb-5">
                   <div className="flex items-center gap-4">
                     <div
                       onClick={() => setAvatarModalOpen(true)}
                       title="Klik untuk muat naik gambar (300×300 px) atau masukkan link gambar"
-                      className="relative group w-16 h-16 rounded-full overflow-hidden bg-amber-400 text-slate-950 font-bold text-lg flex items-center justify-center shrink-0 cursor-pointer border-2 border-slate-200"
+                      className="relative group cursor-pointer shrink-0"
                     >
-                      {member.avatar ? (
-                        <img
-                          src={member.avatar}
-                          alt={member.name}
-                          referrerPolicy="no-referrer"
-                          className="w-full h-full object-cover"
-                        />
-                      ) : (
-                        <span>{memberInitials}</span>
-                      )}
-                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+                      <ScholarCharacterAvatar
+                        member={member}
+                        size="xl"
+                        showPhotoIfAvailable
+                      />
+                      <div className="absolute inset-0 rounded-full bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
                         <Camera className="w-5 h-5 text-white" />
                       </div>
                     </div>
                     <div>
-                      <div className="text-xs font-medium text-slate-500">
-                        Selamat Datang,
+                      <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-purple-100 text-purple-900 text-xs font-bold mb-1">
+                        <Sparkles className="w-3.5 h-3.5 text-pink-600" />
+                        <span>Selamat Datang, Ahli Platinum</span>
                       </div>
-                      <h2 className="text-xl font-bold text-slate-900">
+                      <h2 className="text-xl sm:text-2xl font-black text-slate-900">
                         {member.name}
                       </h2>
-                      <div className="text-xs text-slate-500 mt-0.5">
-                        {member.username} · Pakej {member.package} ·{' '}
-                        {member.university} (Semester {member.currentSemester})
+                      <div className="text-xs text-slate-600 mt-0.5 font-medium">
+                        ID Tetap:{' '}
+                        <strong className="font-mono text-purple-800">
+                          {member.username}
+                        </strong>{' '}
+                        · Pakej{' '}
+                        <strong className="text-pink-700">
+                          {member.package}
+                        </strong>{' '}
+                        · {member.university} (Semester {member.currentSemester}
+                        )
                       </div>
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
                     <button
                       type="button"
                       onClick={() => setAvatarModalOpen(true)}
-                      className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-semibold rounded-xl transition-colors whitespace-nowrap shrink-0 cursor-pointer flex items-center gap-1.5"
+                      className="px-3.5 py-2 bg-purple-50 hover:bg-purple-100 text-purple-900 border border-purple-200 text-xs font-bold rounded-xl transition-colors whitespace-nowrap shrink-0 cursor-pointer flex items-center gap-1.5"
                     >
-                      <Camera className="w-3.5 h-3.5" />
+                      <Camera className="w-3.5 h-3.5 text-purple-700" />
                       Tukar Gambar / Link
                     </button>
                     <button
                       type="button"
                       onClick={() => setActiveTab('profile')}
-                      className="px-3.5 py-2 bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold rounded-xl transition-colors whitespace-nowrap shrink-0 cursor-pointer"
+                      className="px-3.5 py-2 bg-gradient-to-r from-[#2e1065] to-[#4c1d95] hover:from-[#3b0764] hover:to-[#5b21b6] text-white text-xs font-bold rounded-xl transition-colors whitespace-nowrap shrink-0 cursor-pointer shadow-sm"
                     >
                       Kemaskini Profil
                     </button>
                   </div>
                 </div>
 
-                {/* 4 KPI Cards */}
+                {/* 4 KPI Cards — Pastel Ceria Mengikut Gambar Rujukan */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                  <div className="p-5 rounded-xl bg-emerald-50/60 border border-emerald-200">
-                    <div className="text-xs font-semibold text-slate-600">
+                  <div
+                    onClick={() => setActiveTab('roadmap')}
+                    className="p-5 rounded-2xl bg-gradient-to-br from-emerald-50 to-teal-100/70 border border-emerald-200/90 shadow-xs cursor-pointer hover:shadow-md transition-all"
+                  >
+                    <div className="text-xs font-bold text-emerald-950">
                       Progress Kajian
                     </div>
-                    <div className="text-3xl font-bold font-mono text-emerald-700 mt-1 tabular-nums">
-                      {member.overallProgress}%
+                    <div className="flex items-center gap-2.5 mt-1.5">
+                      <span className="w-8 h-8 rounded-xl bg-emerald-500 text-white flex items-center justify-center shadow-xs shrink-0">
+                        <CheckCircle2 className="w-5 h-5" />
+                      </span>
+                      <span className="text-3xl font-black font-mono text-slate-900 tabular-nums">
+                        {member.overallProgress}%
+                      </span>
                     </div>
-                    <div className="text-xs text-slate-500 mt-1">
+                    <div className="text-xs text-emerald-900 font-semibold mt-1.5">
                       {member.currentPhase}
                     </div>
                   </div>
 
-                  <div className="p-5 rounded-xl bg-indigo-50/60 border border-indigo-200">
-                    <div className="text-xs font-semibold text-slate-600">
+                  <div
+                    onClick={() => setActiveTab('drafts')}
+                    className="p-5 rounded-2xl bg-gradient-to-br from-purple-50 to-indigo-100/70 border border-purple-200/90 shadow-xs cursor-pointer hover:shadow-md transition-all"
+                  >
+                    <div className="text-xs font-bold text-purple-950">
                       Draf Terkini
                     </div>
-                    <div className="text-3xl font-bold font-mono text-indigo-700 mt-1 tabular-nums">
+                    <div className="text-3xl font-black font-mono text-slate-900 mt-1.5 tabular-nums">
                       {latestDraft
                         ? `Draf ${latestDraft.draftNumber}`
                         : 'Draf 0'}
                     </div>
-                    <div className="text-xs text-slate-500 mt-1 font-mono">
+                    <div className="text-xs text-purple-800 font-semibold mt-1.5 font-mono">
                       {latestDraft
                         ? `${latestDraft.pageCount} muka surat`
                         : 'Belum naik draf'}
                     </div>
                   </div>
 
-                  <div className="p-5 rounded-xl bg-amber-50/60 border border-amber-200">
-                    <div className="text-xs font-semibold text-slate-600">
-                      Kehadiran VC
+                  <div
+                    onClick={() => setActiveTab('vc_attendance')}
+                    className="p-5 rounded-2xl bg-gradient-to-br from-amber-50 to-orange-100/70 border border-amber-200/90 shadow-xs cursor-pointer hover:shadow-md transition-all"
+                  >
+                    <div className="text-xs font-bold text-amber-950">
+                      Kehadiran
                     </div>
-                    <div className="text-3xl font-bold font-mono text-amber-700 mt-1 tabular-nums">
+                    <div className="text-3xl font-black font-mono text-slate-900 mt-1.5 tabular-nums">
                       {attendancePct}%
                     </div>
-                    <div className="text-xs text-slate-500 mt-1">
+                    <div className="text-xs text-amber-900 font-semibold mt-1.5">
                       {myVotes.length} Sesi VC Direkodkan
                     </div>
                   </div>
@@ -1435,30 +1528,30 @@ export const MemberDashboard: React.FC<MemberDashboardProps> = ({
                   <div
                     onClick={() => setActiveTab('publications')}
                     title="Klik untuk buka Dashboard Publication"
-                    className="p-5 rounded-xl bg-pink-50/60 border border-pink-200 cursor-pointer hover:bg-pink-100/60 transition-colors"
+                    className="p-5 rounded-2xl bg-gradient-to-br from-pink-50 to-rose-100/70 border border-pink-200/90 shadow-xs cursor-pointer hover:shadow-md transition-all"
                   >
-                    <div className="text-xs font-semibold text-slate-600">
+                    <div className="text-xs font-bold text-pink-950">
                       Penerbitan (Publication)
                     </div>
-                    <div className="text-3xl font-bold font-mono text-pink-700 mt-1 tabular-nums">
+                    <div className="text-3xl font-black font-mono text-slate-900 mt-1.5 tabular-nums">
                       {member.publications.length}
                     </div>
-                    <div className="text-xs text-pink-700 font-semibold mt-1">
+                    <div className="text-xs text-pink-700 font-bold mt-1.5">
                       Buka Dashboard Publication →
                     </div>
                   </div>
                 </div>
 
-                {/* Tesis Map Visual Strip */}
+                {/* Tesis Map Visual Strip — Mengikut Gambar Rujukan */}
                 <div className="space-y-3 pt-2">
                   <div className="flex items-center justify-between">
-                    <h3 className="text-sm font-bold text-slate-900">
+                    <h3 className="text-base font-black text-slate-900">
                       Tesis Map
                     </h3>
                     <button
                       type="button"
                       onClick={() => setActiveTab('thesis_map')}
-                      className="text-xs font-semibold text-indigo-700 hover:underline cursor-pointer"
+                      className="text-xs font-bold text-purple-700 hover:underline cursor-pointer"
                     >
                       Kemaskini Bab →
                     </button>
@@ -1477,31 +1570,33 @@ export const MemberDashboard: React.FC<MemberDashboardProps> = ({
                         <div
                           key={ch.id}
                           onClick={() => setActiveTab('thesis_map')}
-                          className={`p-4 rounded-xl border text-center space-y-2 cursor-pointer transition-colors ${
+                          className={`p-4 rounded-2xl border text-center space-y-2 cursor-pointer transition-all hover:shadow-sm ${
                             isDone
-                              ? 'bg-emerald-50/60 border-emerald-200'
+                              ? 'bg-emerald-50/80 border-emerald-200'
                               : isInProgress
-                              ? 'bg-amber-50/60 border-amber-200'
-                              : 'bg-pink-50/40 border-pink-200'
+                              ? 'bg-amber-50/80 border-amber-200'
+                              : 'bg-pink-50/70 border-pink-200'
                           }`}
                         >
-                          <div className="text-xs font-bold text-slate-900">
+                          <div className="text-sm font-black text-slate-900">
                             Bab {ch.chapterNumber}
                           </div>
-                          <div className="text-[11px] text-slate-600 line-clamp-1">
+                          <div className="text-[11px] text-slate-600 line-clamp-1 font-medium">
                             {ch.title.replace(/^Bab \d+:\s*/i, '')}
                           </div>
                           <div className="font-mono text-xs font-bold">
                             {isDone ? (
-                              <span className="text-emerald-700">
+                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-500 text-white text-[11px]">
                                 ✓ Selesai ({ch.progress}%)
                               </span>
                             ) : isInProgress ? (
-                              <span className="text-amber-700">
+                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-amber-400 text-slate-950 text-[11px]">
                                 Sedang ({ch.progress}%)
                               </span>
                             ) : (
-                              <span className="text-pink-700">Belum Mula</span>
+                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-pink-500 text-white text-[11px]">
+                                Belum
+                              </span>
                             )}
                           </div>
                         </div>
@@ -1513,46 +1608,49 @@ export const MemberDashboard: React.FC<MemberDashboardProps> = ({
 
               {/* Bottom 2-Column Split: Status Fasa PhD & Kemajuan Keseluruhan */}
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-                <div className="lg:col-span-6 bg-white border border-slate-200 rounded-2xl p-6 space-y-4">
-                  <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-                    <h3 className="text-base font-bold text-slate-900">
-                      Status Fasa PhD
+                <div className="lg:col-span-6 bg-white/95 border border-purple-200/80 rounded-3xl p-6 space-y-4 shadow-sm">
+                  <div className="flex items-center justify-between border-b border-purple-100 pb-3">
+                    <h3 className="text-base font-black text-slate-900">
+                      Status Fasa Kajian (Master PhD Roadmap)
                     </h3>
                     <button
                       type="button"
-                      onClick={() => setActiveTab('progress')}
-                      className="text-xs font-semibold text-indigo-700 hover:underline cursor-pointer"
+                      onClick={() => setActiveTab('roadmap')}
+                      className="text-xs font-bold text-purple-700 hover:underline cursor-pointer"
                     >
-                      Ubah Fasa →
+                      Buka Roadmap & Ubah Fasa →
                     </button>
                   </div>
                   <div className="space-y-2.5 text-xs">
                     {PHD_PHASES.map((ph, idx) => {
-                      const currentIdx = PHD_PHASES.indexOf(
-                        member.currentPhase
-                      );
+                      const activeSyncedPhase = derivePhaseFromDates(
+                        profileForm.dates,
+                        TODAY_DATE_STR
+                      ).phase;
+                      const currentIdx = PHD_PHASES.indexOf(activeSyncedPhase);
                       const isDone = idx < currentIdx;
                       const isCurr = idx === currentIdx;
                       return (
                         <div
                           key={ph}
-                          className={`p-3 rounded-xl border flex items-center justify-between ${
+                          onClick={() => setActiveTab('roadmap')}
+                          className={`p-3 rounded-xl border flex items-center justify-between cursor-pointer transition-colors ${
                             isCurr
-                              ? 'border-indigo-600 bg-indigo-50/60 font-bold text-indigo-950'
+                              ? 'border-pink-500 bg-pink-50/70 font-bold text-pink-950'
                               : isDone
-                              ? 'border-emerald-200 bg-emerald-50/30 text-slate-700'
-                              : 'border-slate-200 text-slate-500'
+                              ? 'border-emerald-200 bg-emerald-50/40 text-slate-700'
+                              : 'border-slate-200 text-slate-500 hover:bg-purple-50/40'
                           }`}
                         >
                           <span>
                             {idx + 1}. {ph}
                           </span>
-                          <span className="font-mono text-[11px]">
+                          <span className="font-mono text-[11px] font-bold">
                             {isCurr
-                              ? 'Dalam Proses'
+                              ? '★ Fasa Semasa'
                               : isDone
                               ? '✓ Selesai'
-                              : 'Belum'}
+                              : 'Sasaran'}
                           </span>
                         </div>
                       );
@@ -1560,12 +1658,12 @@ export const MemberDashboard: React.FC<MemberDashboardProps> = ({
                   </div>
                 </div>
 
-                <div className="lg:col-span-6 bg-white border border-slate-200 rounded-2xl p-6 space-y-4">
-                  <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-                    <h3 className="text-base font-bold text-slate-900">
+                <div className="lg:col-span-6 bg-white/95 border border-purple-200/80 rounded-3xl p-6 space-y-4 shadow-sm">
+                  <div className="flex items-center justify-between border-b border-purple-100 pb-3">
+                    <h3 className="text-base font-black text-slate-900">
                       Kemajuan Keseluruhan Mengikut Bab
                     </h3>
-                    <span className="text-xs font-mono font-bold text-indigo-700">
+                    <span className="text-xs font-mono font-bold text-purple-700">
                       Purata: {member.overallProgress}%
                     </span>
                   </div>
@@ -1573,11 +1671,11 @@ export const MemberDashboard: React.FC<MemberDashboardProps> = ({
                   <div className="h-52 flex items-end justify-around gap-3 pt-6 px-4 border-b border-slate-200">
                     {chapters.map((ch, idx) => {
                       const barColors = [
+                        'bg-pink-500',
                         'bg-orange-500',
-                        'bg-amber-500',
+                        'bg-amber-400',
                         'bg-emerald-500',
-                        'bg-teal-600',
-                        'bg-sky-600',
+                        'bg-teal-500',
                         'bg-indigo-600',
                       ];
                       const h = Math.max(10, ch.progress);
@@ -1590,7 +1688,7 @@ export const MemberDashboard: React.FC<MemberDashboardProps> = ({
                             {ch.progress}%
                           </span>
                           <div
-                            className={`w-full max-w-[42px] rounded-t-lg transition-all ${
+                            className={`w-full max-w-[42px] rounded-t-xl transition-all shadow-xs ${
                               barColors[idx % barColors.length]
                             }`}
                             style={{ height: `${h}%` }}
@@ -1599,7 +1697,7 @@ export const MemberDashboard: React.FC<MemberDashboardProps> = ({
                       );
                     })}
                   </div>
-                  <div className="flex items-center justify-around text-xs font-semibold text-slate-600">
+                  <div className="flex items-center justify-around text-xs font-bold text-slate-600">
                     {chapters.map((ch) => (
                       <span key={ch.id}>Bab {ch.chapterNumber}</span>
                     ))}
@@ -1710,7 +1808,7 @@ export const MemberDashboard: React.FC<MemberDashboardProps> = ({
                       required
                       value={profileForm.name}
                       onChange={(e) =>
-                        setProfileForm({ ...profileForm, name: e.target.value })
+                        commitProfileChanges({ name: e.target.value })
                       }
                       className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg"
                     />
@@ -1724,8 +1822,7 @@ export const MemberDashboard: React.FC<MemberDashboardProps> = ({
                       required
                       value={profileForm.email}
                       onChange={(e) =>
-                        setProfileForm({
-                          ...profileForm,
+                        commitProfileChanges({
                           email: e.target.value,
                         })
                       }
@@ -1741,8 +1838,7 @@ export const MemberDashboard: React.FC<MemberDashboardProps> = ({
                       required
                       value={profileForm.phone}
                       onChange={(e) =>
-                        setProfileForm({
-                          ...profileForm,
+                        commitProfileChanges({
                           phone: e.target.value,
                         })
                       }
@@ -1758,8 +1854,7 @@ export const MemberDashboard: React.FC<MemberDashboardProps> = ({
                     <select
                       value={profileForm.studyLevel || 'PhD'}
                       onChange={(e) =>
-                        setProfileForm({
-                          ...profileForm,
+                        commitProfileChanges({
                           studyLevel: e.target.value as StudyLevel,
                         })
                       }
@@ -1790,8 +1885,7 @@ export const MemberDashboard: React.FC<MemberDashboardProps> = ({
                     <select
                       value={normalizeUniversityName(profileForm.university)}
                       onChange={(e) =>
-                        setProfileForm({
-                          ...profileForm,
+                        commitProfileChanges({
                           university: e.target.value,
                         })
                       }
@@ -1831,8 +1925,7 @@ export const MemberDashboard: React.FC<MemberDashboardProps> = ({
                     <select
                       value={profileForm.currentSemester}
                       onChange={(e) =>
-                        setProfileForm({
-                          ...profileForm,
+                        commitProfileChanges({
                           currentSemester: e.target.value,
                         })
                       }
@@ -1866,8 +1959,7 @@ export const MemberDashboard: React.FC<MemberDashboardProps> = ({
                       type="text"
                       value={profileForm.researchField || ''}
                       onChange={(e) =>
-                        setProfileForm({
-                          ...profileForm,
+                        commitProfileChanges({
                           researchField: e.target.value,
                         })
                       }
@@ -1883,12 +1975,12 @@ export const MemberDashboard: React.FC<MemberDashboardProps> = ({
                     <input
                       type="text"
                       value={profileForm.researchTitle}
-                      onChange={(e) =>
-                        setProfileForm({
-                          ...profileForm,
+                      onChange={(e) => {
+                        setResearchTitleMapInput(e.target.value);
+                        commitProfileChanges({
                           researchTitle: e.target.value,
-                        })
-                      }
+                        });
+                      }}
                       className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg"
                     />
                   </div>
@@ -1966,8 +2058,7 @@ export const MemberDashboard: React.FC<MemberDashboardProps> = ({
                           ]
                             .filter(Boolean)
                             .join(', ');
-                          setProfileForm({
-                            ...profileForm,
+                          commitProfileChanges({
                             district: nextDistrict,
                             residence: composed || profileForm.residence,
                           });
@@ -1997,8 +2088,7 @@ export const MemberDashboard: React.FC<MemberDashboardProps> = ({
                           ]
                             .filter(Boolean)
                             .join(', ');
-                          setProfileForm({
-                            ...profileForm,
+                          commitProfileChanges({
                             state: nextState,
                             residence: composed || profileForm.residence,
                           });
@@ -2016,8 +2106,7 @@ export const MemberDashboard: React.FC<MemberDashboardProps> = ({
                         type="text"
                         value={profileForm.residence}
                         onChange={(e) =>
-                          setProfileForm({
-                            ...profileForm,
+                          commitProfileChanges({
                             residence: e.target.value,
                           })
                         }
@@ -2041,8 +2130,7 @@ export const MemberDashboard: React.FC<MemberDashboardProps> = ({
                         type="text"
                         value={profileForm.supervisor}
                         onChange={(e) =>
-                          setProfileForm({
-                            ...profileForm,
+                          commitProfileChanges({
                             supervisor: e.target.value,
                           })
                         }
@@ -2058,8 +2146,7 @@ export const MemberDashboard: React.FC<MemberDashboardProps> = ({
                         type="text"
                         value={profileForm.supervisor2 || ''}
                         onChange={(e) =>
-                          setProfileForm({
-                            ...profileForm,
+                          commitProfileChanges({
                             supervisor2: e.target.value,
                           })
                         }
@@ -2075,8 +2162,7 @@ export const MemberDashboard: React.FC<MemberDashboardProps> = ({
                         type="text"
                         value={profileForm.supervisor3 || ''}
                         onChange={(e) =>
-                          setProfileForm({
-                            ...profileForm,
+                          commitProfileChanges({
                             supervisor3: e.target.value,
                           })
                         }
@@ -2098,15 +2184,25 @@ export const MemberDashboard: React.FC<MemberDashboardProps> = ({
               member={profileForm}
               defaultCurrentDate={TODAY_DATE_STR}
               onUpdateDates={(newDates) => {
-                const updated: MemberProfile = {
-                  ...profileForm,
-                  dates: newDates,
-                };
-                setProfileForm(updated);
-                onUpdateMember(updated);
+                commitProfileChanges({ dates: newDates });
                 showToast(
                   'Tarikh Master PhD Roadmap & kedudukan perjalanan di atas jalan berliku telah dikemaskini!'
                 );
+              }}
+              onUpdatePhase={(newPhase) => {
+                const phaseIdx = Math.max(0, PHD_PHASES.indexOf(newPhase));
+                const nextProgress = Math.max(
+                  profileForm.overallProgress,
+                  Math.min(
+                    100,
+                    Math.round(((phaseIdx + 1) / PHD_PHASES.length) * 95)
+                  )
+                );
+                commitProfileChanges({
+                  currentPhase: newPhase,
+                  overallProgress: nextProgress,
+                });
+                showToast(`Fasa kajian semasa dikemaskini kepada: ${newPhase}`);
               }}
             />
           )}
@@ -2435,163 +2531,6 @@ export const MemberDashboard: React.FC<MemberDashboardProps> = ({
                   </div>
                 </div>
               )}
-            </div>
-          )}
-
-          {/* ========================================== */}
-          {/* TAB 3: KEMASKINI PROGRESS KAJIAN           */}
-          {/* ========================================== */}
-          {activeTab === 'progress' && (
-            <div className="space-y-6">
-              <div className="bg-white border border-slate-200 rounded-2xl p-6 space-y-6">
-                <div className="border-b border-slate-200 pb-4">
-                  <h2 className="text-lg font-bold text-slate-900">
-                    Kemaskini Progress Kajian PhD
-                  </h2>
-                  <p className="text-xs text-slate-500">
-                    Pilih fasa semasa pengajian anda dan laraskan peratus
-                    kemajuan keseluruhan
-                  </p>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3">
-                  {PHD_PHASES.map((phase, index) => {
-                    const currentIdx = PHD_PHASES.indexOf(member.currentPhase);
-                    const isActive = phase === member.currentPhase;
-                    const isPassed = index < currentIdx;
-
-                    return (
-                      <button
-                        type="button"
-                        key={phase}
-                        onClick={() => {
-                          const newProgress = Math.min(
-                            100,
-                            Math.round(((index + 1) / PHD_PHASES.length) * 95)
-                          );
-                          const updated = {
-                            ...member,
-                            currentPhase: phase as PhDPhase,
-                            overallProgress: newProgress,
-                          };
-                          setProfileForm(updated);
-                          onUpdateMember(updated);
-                          showToast(
-                            `Fasa kajian telah dikemaskini kepada: ${phase}`
-                          );
-                        }}
-                        className={`p-4 rounded-xl border text-left transition-colors cursor-pointer ${
-                          isActive
-                            ? 'border-indigo-600 bg-indigo-50/70'
-                            : isPassed
-                            ? 'border-emerald-200 bg-emerald-50/40'
-                            : 'border-slate-200 hover:bg-slate-50'
-                        }`}
-                      >
-                        <div className="flex items-center justify-between text-xs font-mono">
-                          <span className="font-bold text-slate-700">
-                            FASA 0{index + 1}
-                          </span>
-                          <span className="text-[11px] font-semibold">
-                            {isActive
-                              ? 'Semasa'
-                              : isPassed
-                              ? 'Selesai'
-                              : 'Sasaran'}
-                          </span>
-                        </div>
-                        <div className="text-sm font-bold text-slate-900 mt-2">
-                          {phase}
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4 border-t border-slate-100">
-                  <div className="space-y-4">
-                    <div>
-                      <div className="flex items-center justify-between text-xs font-semibold text-slate-700 mb-1.5">
-                        <span>Peratus Kemajuan Keseluruhan (%)</span>
-                        <span className="font-mono text-sm font-bold text-indigo-700">
-                          {member.overallProgress}%
-                        </span>
-                      </div>
-                      <input
-                        type="range"
-                        min={0}
-                        max={100}
-                        value={member.overallProgress}
-                        onChange={(e) => {
-                          const updated = {
-                            ...member,
-                            overallProgress: Number(e.target.value),
-                          };
-                          setProfileForm(updated);
-                          onUpdateMember(updated);
-                        }}
-                        className="w-full accent-indigo-600 cursor-pointer"
-                      />
-                    </div>
-
-                    <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-2">
-                      <div className="text-xs font-bold text-slate-900">
-                        Maklum Balas CRMP ({memberCrmp?.name || member.crmpId})
-                      </div>
-                      <p className="text-xs text-slate-700 leading-relaxed">
-                        {member.crmpNotes ||
-                          'Tiada ulasan tambahan daripada CRMP buat masa ini. Terus kekal BERTAHAN sampai jadi.'}
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="border border-slate-200 rounded-xl p-4 space-y-2.5">
-                    <div className="text-xs font-bold text-slate-900">
-                      Rekod Tarikh Fasa Kajian Anda
-                    </div>
-                    <div className="divide-y divide-slate-100 text-xs">
-                      <div className="py-2 flex justify-between">
-                        <span className="text-slate-600">
-                          1. Register Proposal Defence (PD)
-                        </span>
-                        <span className="font-mono font-semibold text-slate-900">
-                          {member.dates.registerPD || '-'}
-                        </span>
-                      </div>
-                      <div className="py-2 flex justify-between">
-                        <span className="text-slate-600">
-                          2. Data Collection & Analysis
-                        </span>
-                        <span className="font-mono font-semibold text-slate-900">
-                          {member.dates.dataCollectionAnalysis || '-'}
-                        </span>
-                      </div>
-                      <div className="py-2 flex justify-between">
-                        <span className="text-slate-600">
-                          3. Notice of Submission (Nos)
-                        </span>
-                        <span className="font-mono font-semibold text-slate-900">
-                          {member.dates.nos || '-'}
-                        </span>
-                      </div>
-                      <div className="py-2 flex justify-between">
-                        <span className="text-slate-600">
-                          4. Thesis Submission
-                        </span>
-                        <span className="font-mono font-semibold text-slate-900">
-                          {member.dates.thesisSubmission || '-'}
-                        </span>
-                      </div>
-                      <div className="py-2 flex justify-between">
-                        <span className="text-slate-600">5. Viva Voce</span>
-                        <span className="font-mono font-semibold text-slate-900">
-                          {member.dates.viva || '-'}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
             </div>
           )}
 
@@ -3479,6 +3418,28 @@ export const MemberDashboard: React.FC<MemberDashboardProps> = ({
                     />
                   </div>
 
+                  {/* Link Draf Tesis Masing-Masing (Google Drive / OneDrive / Dokumen) */}
+                  <div className="p-3.5 rounded-lg bg-indigo-50/70 border border-indigo-200 space-y-1.5">
+                    <label className="flex items-center gap-1.5 text-xs font-bold text-indigo-950">
+                      <ExternalLink className="w-3.5 h-3.5 text-indigo-700" />
+                      <span>
+                        Link Draf Ke-{draftNum} (Google Drive / OneDrive /
+                        Dokumen Tesis Anda)
+                      </span>
+                    </label>
+                    <input
+                      type="url"
+                      value={draftLinkInput}
+                      onChange={(e) => setDraftLinkInput(e.target.value)}
+                      placeholder="https://drive.google.com/file/d/... (Masukkan pautan fail draf tesis anda)"
+                      className="w-full px-3 py-2 text-xs font-mono bg-white border border-indigo-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    />
+                    <p className="text-[11px] text-indigo-800">
+                      Setiap kenaikan draf, anda boleh masukkan pautan (link)
+                      fail draf tesis masing-masing untuk rujukan anda dan CRMP.
+                    </p>
+                  </div>
+
                   <div className="p-3.5 rounded-lg border border-slate-200 space-y-2">
                     <label className="flex items-center gap-2 text-xs font-bold text-slate-900 cursor-pointer">
                       <input
@@ -3540,8 +3501,9 @@ export const MemberDashboard: React.FC<MemberDashboardProps> = ({
                     Maklumat Setiap Kenaikan Draf ({memberDrafts.length})
                   </h3>
                   <p className="text-xs text-slate-500">
-                    Lihat maklumat penuh setiap kenaikan draf dan tambah atau
-                    kemaskini catatan anda pada bila-bila masa
+                    Lihat maklumat penuh setiap kenaikan draf, buka link draf
+                    masing-masing, dan tambah atau kemaskini catatan anda pada
+                    bila-bila masa
                   </p>
                 </div>
 
@@ -3566,6 +3528,10 @@ export const MemberDashboard: React.FC<MemberDashboardProps> = ({
                         draftNotesEditMap[d.id] !== undefined
                           ? draftNotesEditMap[d.id]
                           : d.memberNotes || '';
+                      const currentLinkVal =
+                        draftLinksEditMap[d.id] !== undefined
+                          ? draftLinksEditMap[d.id]
+                          : d.draftLink || '';
 
                       return (
                         <div
@@ -3615,6 +3581,40 @@ export const MemberDashboard: React.FC<MemberDashboardProps> = ({
                               </div>
                             </div>
                           </div>
+
+                          {/* Paparan Link Draf Masing-Masing */}
+                          {d.draftLink ? (
+                            <div className="p-2.5 rounded-lg bg-indigo-50/80 border border-indigo-200 flex items-center justify-between gap-2 text-xs">
+                              <div className="min-w-0">
+                                <div className="text-[10px] font-bold text-indigo-700 uppercase">
+                                  Link Draf Ke-{d.draftNumber}
+                                </div>
+                                <div className="font-mono text-[11px] text-slate-700 truncate">
+                                  {d.draftLink}
+                                </div>
+                              </div>
+                              <a
+                                href={d.draftLink}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="px-3 py-1.5 bg-indigo-700 hover:bg-indigo-800 text-white text-[11px] font-semibold rounded-lg inline-flex items-center gap-1 shrink-0"
+                              >
+                                Buka Link Draf
+                                <ExternalLink className="w-3 h-3" />
+                              </a>
+                            </div>
+                          ) : (
+                            <div className="p-2 rounded-lg bg-slate-50 border border-dashed border-slate-200 text-[11px] text-slate-500 flex items-center justify-between">
+                              <span>Tiada pautan link draf dimasukkan</span>
+                              <button
+                                type="button"
+                                onClick={() => setSelectedDraftDetailId(d.id)}
+                                className="text-indigo-700 font-bold hover:underline cursor-pointer"
+                              >
+                                + Masukkan Link Draf
+                              </button>
+                            </div>
+                          )}
 
                           {/* Senarai Semak Kenaikan Draf */}
                           <div className="text-xs text-slate-700 flex flex-wrap gap-1.5">
@@ -3702,7 +3702,7 @@ export const MemberDashboard: React.FC<MemberDashboardProps> = ({
                             </div>
                           )}
 
-                          {/* Butang Lihat Maklumat Penuh & Buat/Kemaskini Catatan */}
+                          {/* Butang Lihat Maklumat Penuh & Buat/Kemaskini Catatan / Link */}
                           <div className="pt-1 border-t border-slate-100 flex items-center justify-between">
                             <button
                               type="button"
@@ -3715,14 +3715,12 @@ export const MemberDashboard: React.FC<MemberDashboardProps> = ({
                             >
                               <Eye className="w-3.5 h-3.5" />
                               {isExpanded
-                                ? 'Tutup Maklumat & Catatan'
-                                : d.memberNotes
-                                ? 'Lihat Maklumat Penuh / Edit Catatan'
-                                : 'Lihat Maklumat Penuh / + Buat Catatan'}
+                                ? 'Tutup Maklumat, Link & Catatan'
+                                : 'Lihat Maklumat Penuh / Edit Link & Catatan'}
                             </button>
                           </div>
 
-                          {/* Panel Terperinci Maklumat Kenaikan Draf & Ruangan Catatan Ahli */}
+                          {/* Panel Terperinci Maklumat Kenaikan Draf & Ruangan Link + Catatan Ahli */}
                           {isExpanded && (
                             <div className="p-3.5 rounded-xl bg-slate-50 border border-indigo-200 space-y-3 text-xs">
                               <div className="font-bold text-slate-900 border-b border-slate-200 pb-1.5">
@@ -3746,22 +3744,44 @@ export const MemberDashboard: React.FC<MemberDashboardProps> = ({
                                 )}
                               </div>
 
-                              <div className="space-y-1.5 pt-1">
-                                <label className="block text-xs font-bold text-amber-900">
-                                  Catatan Anda Untuk Draf Ke-{d.draftNumber}:
-                                </label>
-                                <textarea
-                                  rows={2}
-                                  value={currentNoteVal}
-                                  onChange={(e) =>
-                                    setDraftNotesEditMap({
-                                      ...draftNotesEditMap,
-                                      [d.id]: e.target.value,
-                                    })
-                                  }
-                                  placeholder="Tulis atau kemaskini catatan anda untuk kenaikan draf ini..."
-                                  className="w-full px-3 py-2 text-xs bg-white border border-amber-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500"
-                                />
+                              <div className="space-y-2 pt-1">
+                                <div>
+                                  <label className="block text-xs font-bold text-indigo-900 mb-1">
+                                    Link Draf Ke-{d.draftNumber} (Google Drive /
+                                    OneDrive / Fail):
+                                  </label>
+                                  <input
+                                    type="url"
+                                    value={currentLinkVal}
+                                    onChange={(e) =>
+                                      setDraftLinksEditMap({
+                                        ...draftLinksEditMap,
+                                        [d.id]: e.target.value,
+                                      })
+                                    }
+                                    placeholder="https://drive.google.com/file/d/..."
+                                    className="w-full px-3 py-2 text-xs font-mono bg-white border border-indigo-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                  />
+                                </div>
+
+                                <div>
+                                  <label className="block text-xs font-bold text-amber-900 mb-1">
+                                    Catatan Anda Untuk Draf Ke-{d.draftNumber}:
+                                  </label>
+                                  <textarea
+                                    rows={2}
+                                    value={currentNoteVal}
+                                    onChange={(e) =>
+                                      setDraftNotesEditMap({
+                                        ...draftNotesEditMap,
+                                        [d.id]: e.target.value,
+                                      })
+                                    }
+                                    placeholder="Tulis atau kemaskini catatan anda untuk kenaikan draf ini..."
+                                    className="w-full px-3 py-2 text-xs bg-white border border-amber-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500"
+                                  />
+                                </div>
+
                                 <div className="flex justify-end">
                                   <button
                                     type="button"
@@ -3770,7 +3790,7 @@ export const MemberDashboard: React.FC<MemberDashboardProps> = ({
                                     }
                                     className="px-3.5 py-1.5 bg-indigo-700 hover:bg-indigo-800 text-white text-xs font-semibold rounded-lg cursor-pointer"
                                   >
-                                    Simpan Catatan Draf Ke-{d.draftNumber}
+                                    Simpan Link & Catatan Draf Ke-{d.draftNumber}
                                   </button>
                                 </div>
                               </div>
@@ -3993,7 +4013,11 @@ export const MemberDashboard: React.FC<MemberDashboardProps> = ({
                   <input
                     type="text"
                     value={researchTitleMapInput}
-                    onChange={(e) => setResearchTitleMapInput(e.target.value)}
+                    onChange={(e) => {
+                      const nextVal = e.target.value;
+                      setResearchTitleMapInput(nextVal);
+                      commitProfileChanges({ researchTitle: nextVal });
+                    }}
                     placeholder="Masukkan tajuk penuh kajian PhD anda..."
                     className="w-full px-3.5 py-2.5 text-sm font-semibold bg-white border border-indigo-300 rounded-xl focus:outline-none focus:border-indigo-600"
                   />

@@ -63,7 +63,9 @@ export const AuthView: React.FC<AuthViewProps> = ({
   onRegisterMember,
   onResetUserPassword,
 }) => {
-  const [usernameInput, setUsernameInput] = useState('APP0001');
+  const [usernameInput, setUsernameInput] = useState(
+    members[0]?.username || 'DR0001'
+  );
   const [passwordInput, setPasswordInput] = useState('drroket2026');
   const [errorMsg, setErrorMsg] = useState('');
   const [showRegisterModal, setShowRegisterModal] = useState(false);
@@ -108,7 +110,7 @@ export const AuthView: React.FC<AuthViewProps> = ({
   const [regSupervisor, setRegSupervisor] = useState('');
 
   const getNextUsernamePreview = (pkg: MemberPackage) => {
-    return generateNextMemberUsername(pkg, members);
+    return generateNextMemberUsername(pkg, members, regName);
   };
 
   const getAccountCurrentPassword = (code: string): string => {
@@ -135,7 +137,7 @@ export const AuthView: React.FC<AuthViewProps> = ({
 
     const trimmed = sanitizeInputString(usernameInput.trim());
     if (!trimmed) {
-      setErrorMsg('Sila masukkan ID Pengguna / Username anda.');
+      setErrorMsg('Sila masukkan ID Pengguna anda (cth: DR0001).');
       return;
     }
 
@@ -174,7 +176,7 @@ export const AuthView: React.FC<AuthViewProps> = ({
     const cleanQuery = sanitizeInputString(forgotQuery.trim());
     if (!cleanQuery) {
       setForgotError(
-        'Sila masukkan ID Pengguna (contoh: APP0001 / CRMP001 / admin001) atau E-mel berdaftar.'
+        'Sila masukkan ID Pengguna anda (contoh: DR0001 / CRMP001 / admin001).'
       );
       return;
     }
@@ -184,7 +186,7 @@ export const AuthView: React.FC<AuthViewProps> = ({
 
     if (!res.found || !res.username) {
       setForgotError(
-        'Tiada akaun Ahli Platinum, CRMP, atau Admin dijumpai dengan ID Pengguna atau E-mel tersebut.'
+        'Tiada akaun dijumpai dengan ID Pengguna tersebut.'
       );
       return;
     }
@@ -226,31 +228,34 @@ export const AuthView: React.FC<AuthViewProps> = ({
   };
 
   return (
-    <div className="min-h-screen bg-slate-100 flex flex-col items-center justify-center p-4">
-      {/* Centered Minimal & Professional Login Card */}
-      <div className="w-full max-w-md bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
+    <div className="min-h-screen bg-gradient-to-br from-[#f5f3ff] via-[#fdf2f8] to-[#eef2ff] flex flex-col items-center justify-center p-4">
+      {/* Centered Cheerful & Professional Login Card */}
+      <div className="w-full max-w-md bg-white border border-purple-200/80 rounded-3xl shadow-xl shadow-purple-900/10 overflow-hidden">
         {/* Top Brand Banner */}
-        <div className="bg-slate-900 px-8 py-7 text-center space-y-2">
-          <div className="w-12 h-12 rounded-xl bg-indigo-600 text-white flex items-center justify-center mx-auto shadow-sm">
+        <div className="bg-gradient-to-r from-[#2e1065] via-[#4c1d95] to-[#3b0764] px-8 py-7 text-center space-y-2 relative overflow-hidden">
+          <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-pink-500 to-amber-400 text-white flex items-center justify-center mx-auto shadow-md">
             <Rocket className="w-6 h-6" />
           </div>
-          <h1 className="text-xl font-bold tracking-tight text-white">
+          <h1 className="text-xl font-black tracking-tight text-white">
             PLATINUM DR. ROKET
           </h1>
-          <p className="text-xs text-slate-300">
+          <p className="text-xs text-purple-200 font-medium">
             Sistem Pengurusan Ahli Platinum
           </p>
         </div>
 
         {/* Form Body */}
-        <div className="p-8 space-y-6">
+        <div className="p-8 space-y-5">
           <div className="text-center space-y-1">
             <h2 className="text-lg font-bold text-slate-900">
               Log Masuk Akaun
             </h2>
             <p className="text-xs text-slate-500">
-              Masukkan ID Pengguna & Kata Laluan anda untuk akses ke papan
-              pemuka
+              Log masuk guna <strong>ID Pengguna Tetap</strong> (cth:{' '}
+              <span className="font-mono text-purple-700 font-semibold">
+                DR0001-KAMARIAH
+              </span>
+              ) atau <strong>E-mel</strong>
             </p>
           </div>
 
@@ -261,11 +266,11 @@ export const AuthView: React.FC<AuthViewProps> = ({
             className="space-y-4"
           >
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-                ID Pengguna (Username)
+              <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                ID Pengguna Tetap atau E-mel
               </label>
               <div className="relative">
-                <User className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                <User className="w-4 h-4 text-purple-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
                 <input
                   type="text"
                   name="drroket_code_entry"
@@ -278,19 +283,25 @@ export const AuthView: React.FC<AuthViewProps> = ({
                   data-form-type="other"
                   readOnly
                   onFocus={(e) => e.currentTarget.removeAttribute('readonly')}
-                  onMouseDown={(e) => e.currentTarget.removeAttribute('readonly')}
+                  onMouseDown={(e) =>
+                    e.currentTarget.removeAttribute('readonly')
+                  }
                   value={usernameInput}
                   onChange={(e) => setUsernameInput(e.target.value)}
-                  placeholder="Contoh: APP0001 / CRMP001 / admin001"
-                  className="w-full pl-10 pr-4 py-2.5 text-sm font-mono border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-600 focus:border-transparent"
+                  placeholder="DR0001-KAMARIAH atau e-mel anda"
+                  className="w-full pl-10 pr-4 py-2.5 text-sm font-mono border border-purple-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-600 focus:border-transparent bg-purple-50/30"
                   required
                 />
               </div>
+              <p className="text-[11px] text-slate-500 mt-1">
+                * ID Pengguna kekal sama walaupun pakej bertukar (Premier /
+                Elite Plus / Elite / Holding Room).
+              </p>
             </div>
 
             <div>
               <div className="flex items-center justify-between mb-1.5">
-                <label className="block text-xs font-semibold text-slate-700">
+                <label className="block text-xs font-bold text-slate-700">
                   Kata Laluan
                 </label>
                 <button
@@ -301,13 +312,13 @@ export const AuthView: React.FC<AuthViewProps> = ({
                     setForgotSuccessInfo(null);
                     setShowForgotModal(true);
                   }}
-                  className="text-xs font-bold text-indigo-700 hover:underline cursor-pointer"
+                  className="text-xs font-bold text-purple-700 hover:underline cursor-pointer"
                 >
                   Lupa Kata Laluan?
                 </button>
               </div>
               <div className="relative">
-                <Lock className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                <Lock className="w-4 h-4 text-purple-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
                 <input
                   type="text"
                   name="drroket_access_key"
@@ -320,11 +331,13 @@ export const AuthView: React.FC<AuthViewProps> = ({
                   data-form-type="other"
                   readOnly
                   onFocus={(e) => e.currentTarget.removeAttribute('readonly')}
-                  onMouseDown={(e) => e.currentTarget.removeAttribute('readonly')}
+                  onMouseDown={(e) =>
+                    e.currentTarget.removeAttribute('readonly')
+                  }
                   value={passwordInput}
                   onChange={(e) => setPasswordInput(e.target.value)}
                   placeholder="Masukkan kata laluan"
-                  className="w-full pl-10 pr-4 py-2.5 text-sm border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-600 focus:border-transparent [-webkit-text-security:disc]"
+                  className="w-full pl-10 pr-4 py-2.5 text-sm border border-purple-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-600 focus:border-transparent bg-purple-50/30 [-webkit-text-security:disc]"
                   required
                 />
               </div>
@@ -338,7 +351,7 @@ export const AuthView: React.FC<AuthViewProps> = ({
 
             <button
               type="submit"
-              className="w-full py-2.5 px-4 bg-indigo-700 hover:bg-indigo-800 text-white text-sm font-semibold rounded-xl transition-colors flex items-center justify-center gap-2 cursor-pointer"
+              className="w-full py-2.5 px-4 bg-gradient-to-r from-pink-500 to-purple-700 hover:from-pink-600 hover:to-purple-800 text-white text-sm font-bold rounded-xl shadow-md shadow-purple-600/20 transition-all flex items-center justify-center gap-2 cursor-pointer"
             >
               <LogIn className="w-4 h-4" />
               Log Masuk
@@ -350,9 +363,9 @@ export const AuthView: React.FC<AuthViewProps> = ({
             <button
               type="button"
               onClick={() => setShowRegisterModal(true)}
-              className="w-full py-2.5 px-4 bg-slate-100 hover:bg-slate-200 text-slate-900 text-sm font-semibold rounded-xl transition-colors flex items-center justify-center gap-2 cursor-pointer"
+              className="w-full py-2.5 px-4 bg-purple-50 hover:bg-purple-100 text-purple-950 border border-purple-200 text-sm font-bold rounded-xl transition-colors flex items-center justify-center gap-2 cursor-pointer"
             >
-              <UserPlus className="w-4 h-4 text-indigo-700" />
+              <UserPlus className="w-4 h-4 text-purple-700" />
               Daftar Ahli Baharu
             </button>
 
@@ -364,25 +377,30 @@ export const AuthView: React.FC<AuthViewProps> = ({
                 setForgotSuccessInfo(null);
                 setShowForgotModal(true);
               }}
-              className="w-full py-2 px-4 bg-amber-50 hover:bg-amber-100 text-amber-950 border border-amber-200 text-xs font-semibold rounded-xl transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
+              className="w-full py-2 px-4 bg-amber-50 hover:bg-amber-100 text-amber-950 border border-amber-200 text-xs font-bold rounded-xl transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
             >
               <KeyRound className="w-3.5 h-3.5 text-amber-700" />
-              Lupa Kata Laluan (Ahli / CRMP / Admin)
+              Lupa Kata Laluan
             </button>
           </div>
 
-          {/* Subtle Quick Test Selector */}
+          {/* Akses Pantas Akaun Semasa (Dinamik mengikut data terkini) */}
           <div className="pt-2 text-center space-y-1.5">
-            <div className="text-[11px] text-slate-400">
-              Akses Pantas Akaun Demo:
+            <div className="text-[11px] text-slate-400 font-medium">
+              Akses Pantas Akaun Sistem (ID Tetap / E-mel):
             </div>
             <div className="flex flex-wrap items-center justify-center gap-1.5 text-[11px] font-mono">
               {[
-                { code: 'APP0001', label: 'Premier' },
-                { code: 'APEP0001', label: 'Elite+' },
-                { code: 'APE0001', label: 'Elite' },
-                { code: 'CRMP001', label: 'CRMP' },
-                { code: 'admin001', label: 'Admin' },
+                ...members.slice(0, 3).map((m) => ({
+                  code: m.username,
+                  label: m.package,
+                })),
+                ...(crmps[0]
+                  ? [{ code: crmps[0].username, label: 'CRMP' }]
+                  : []),
+                ...(admins[0]
+                  ? [{ code: admins[0].username, label: 'Admin' }]
+                  : []),
               ].map((acc) => (
                 <button
                   key={acc.code}
@@ -393,7 +411,7 @@ export const AuthView: React.FC<AuthViewProps> = ({
                     setPasswordInput(currentPass);
                     onLogin(acc.code, currentPass);
                   }}
-                  className="px-2 py-1 rounded bg-slate-50 hover:bg-indigo-50 text-slate-600 hover:text-indigo-700 border border-slate-200 transition-colors cursor-pointer"
+                  className="px-2.5 py-1 rounded-lg bg-purple-50/70 hover:bg-purple-100 text-purple-900 border border-purple-200/80 transition-colors cursor-pointer font-semibold"
                 >
                   {acc.code}
                 </button>
@@ -408,10 +426,10 @@ export const AuthView: React.FC<AuthViewProps> = ({
         </div>
       </div>
 
-      {/* Modal Lupa Kata Laluan (Ahli Platinum, CRMP & Admin) */}
+      {/* Modal Lupa Kata Laluan */}
       {showForgotModal && (
         <div className="fixed inset-0 z-50 bg-slate-900/60 flex items-center justify-center p-4">
-          <div className="bg-white border border-slate-200 rounded-2xl max-w-md w-full p-6 space-y-4 shadow-xl">
+          <div className="bg-white border border-purple-200 rounded-2xl max-w-md w-full p-6 space-y-4 shadow-xl">
             <div className="flex items-start justify-between border-b border-slate-200 pb-3">
               <div className="flex items-center gap-2.5">
                 <div className="w-9 h-9 rounded-xl bg-amber-100 text-amber-800 flex items-center justify-center shrink-0">
@@ -422,8 +440,7 @@ export const AuthView: React.FC<AuthViewProps> = ({
                     Lupa Kata Laluan
                   </h3>
                   <p className="text-xs text-slate-500">
-                    Kata laluan sementara akan dihantar ke e-mel berdaftar
-                    (Ahli, CRMP & Admin)
+                    Kata laluan sementara akan dihantar ke e-mel berdaftar anda
                   </p>
                 </div>
               </div>
@@ -439,15 +456,15 @@ export const AuthView: React.FC<AuthViewProps> = ({
             <form onSubmit={handleForgotPasswordSubmit} className="space-y-4">
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  ID Pengguna (Username) atau E-mel Berdaftar
+                  ID Pengguna Tetap atau E-mel Berdaftar
                 </label>
                 <input
                   type="text"
                   required
                   value={forgotQuery}
                   onChange={(e) => setForgotQuery(e.target.value)}
-                  placeholder="Contoh: APP0001 / CRMP001 / admin001 atau e-mel"
-                  className="w-full px-3.5 py-2.5 text-sm border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-600"
+                  placeholder="Contoh: DR0001-KAMARIAH atau e-mel"
+                  className="w-full px-3.5 py-2.5 text-sm border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-600"
                 />
               </div>
 
@@ -504,7 +521,7 @@ export const AuthView: React.FC<AuthViewProps> = ({
                       )}?subject=${encodeURIComponent(
                         `[Platinum Dr. Roket] Kata Laluan Sementara (${forgotSuccessInfo.username})`
                       )}&body=${encodeURIComponent(
-                        `Assalamualaikum & Salam Roket ${forgotSuccessInfo.name},\n\nID Pengguna: ${forgotSuccessInfo.username}\nKata Laluan Sementara: ${forgotSuccessInfo.tempPassword}\n\nSila log masuk menggunakan kata laluan sementara ini dan kemaskini kata laluan baharu anda.`
+                        `Assalamualaikum & Salam Roket ${forgotSuccessInfo.name},\n\nID Pengguna Tetap: ${forgotSuccessInfo.username}\nKata Laluan Sementara: ${forgotSuccessInfo.tempPassword}\n\nSila log masuk menggunakan kata laluan sementara ini dan kemaskini kata laluan baharu anda.`
                       )}`}
                       className="px-3 py-2 bg-white hover:bg-emerald-100 text-emerald-900 border border-emerald-300 text-xs font-semibold rounded-lg inline-flex items-center gap-1"
                     >
@@ -525,7 +542,7 @@ export const AuthView: React.FC<AuthViewProps> = ({
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2.5 bg-indigo-700 hover:bg-indigo-800 text-white text-xs font-semibold rounded-xl inline-flex items-center gap-1.5 cursor-pointer"
+                  className="px-4 py-2.5 bg-purple-700 hover:bg-purple-800 text-white text-xs font-semibold rounded-xl inline-flex items-center gap-1.5 cursor-pointer"
                 >
                   <Mail className="w-3.5 h-3.5" />
                   Hantar Kata Laluan Sementara ke E-mel
@@ -539,14 +556,15 @@ export const AuthView: React.FC<AuthViewProps> = ({
       {/* Modal Daftar Ahli Baharu */}
       {showRegisterModal && (
         <div className="fixed inset-0 z-50 bg-slate-900/60 flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-white border border-slate-200 rounded-2xl max-w-lg w-full p-6 space-y-5 my-8">
+          <div className="bg-white border border-purple-200 rounded-2xl max-w-lg w-full p-6 space-y-5 my-8">
             <div className="flex items-center justify-between border-b border-slate-200 pb-3">
               <div>
                 <h3 className="text-base font-bold text-slate-900">
                   Daftar Ahli Platinum Baharu
                 </h3>
                 <p className="text-xs text-slate-500">
-                  Kod ahli dijana secara automatik mengikut pakej pilihan
+                  ID Pengguna Tetap dijana mengikut nama (kekal sama walaupun
+                  bertukar pakej)
                 </p>
               </div>
               <button
@@ -561,7 +579,11 @@ export const AuthView: React.FC<AuthViewProps> = ({
             <form onSubmit={handleRegisterSubmit} className="space-y-4">
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-                  Pakej Ahli Platinum
+                  Pakej Ahli Platinum (ID Tetap:{' '}
+                  <span className="font-mono font-bold text-purple-700">
+                    {getNextUsernamePreview(regPackage)}
+                  </span>
+                  )
                 </label>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                   {(
@@ -578,12 +600,12 @@ export const AuthView: React.FC<AuthViewProps> = ({
                       onClick={() => setRegPackage(pkg)}
                       className={`p-2.5 rounded-xl border text-left transition-colors cursor-pointer ${
                         regPackage === pkg
-                          ? 'border-indigo-600 bg-indigo-50/60 text-slate-900'
+                          ? 'border-purple-600 bg-purple-50/70 text-slate-900'
                           : 'border-slate-200 text-slate-600 hover:bg-slate-50'
                       }`}
                     >
                       <div className="text-xs font-bold">{pkg}</div>
-                      <div className="text-[11px] font-mono text-indigo-700 mt-0.5">
+                      <div className="text-[11px] font-mono text-purple-700 mt-0.5 truncate">
                         {getNextUsernamePreview(pkg)}
                       </div>
                     </button>

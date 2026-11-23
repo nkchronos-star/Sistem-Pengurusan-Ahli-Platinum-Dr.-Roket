@@ -146,7 +146,7 @@ export const INITIAL_CRMPS: CRMPProfile[] = [
     phone: '012-3456789',
     university: 'UPSI / UKM',
     specialization: 'Pendidikan Sains & Teknologi Maklumat',
-    groupName: 'Kumpulan Seliaan Dr. Mardhiyati (Alpha)',
+    groupName: 'Kumpulan CRMP Alpha (Dr. Mardhiyati)',
     avatar: '',
   },
   {
@@ -187,7 +187,7 @@ export const INITIAL_CRMPS: CRMPProfile[] = [
 export const INITIAL_MEMBERS: MemberProfile[] = [
   {
     id: 'mem-1',
-    username: 'APP0001',
+    username: 'DR0001',
     package: 'Premier',
     name: 'Nik Kamariah binti Nik Ismail',
     email: 'nik.kamariah@siswa.upsi.edu.my',
@@ -317,7 +317,7 @@ export const INITIAL_MEMBERS: MemberProfile[] = [
   },
   {
     id: 'mem-2',
-    username: 'APP0002',
+    username: 'DR0002',
     package: 'Premier',
     name: 'Ahmad Faiz bin Abd Razak',
     email: 'faiz.razak@graduate.utm.my',
@@ -400,7 +400,7 @@ export const INITIAL_MEMBERS: MemberProfile[] = [
   },
   {
     id: 'mem-3',
-    username: 'APEP0001',
+    username: 'DR0003',
     package: 'Elite Plus',
     name: 'Nurul Huda binti Kamarudin',
     email: 'nurulhuda@student.usm.my',
@@ -447,7 +447,7 @@ export const INITIAL_MEMBERS: MemberProfile[] = [
   },
   {
     id: 'mem-4',
-    username: 'APE0001',
+    username: 'DR0004',
     package: 'Elite',
     name: 'Farah Wahida binti Othman',
     email: 'farah.wahida@uitm.edu.my',
@@ -494,7 +494,7 @@ export const INITIAL_MEMBERS: MemberProfile[] = [
   },
   {
     id: 'mem-5',
-    username: 'APP0003',
+    username: 'DR0005',
     package: 'Premier',
     name: 'Siti Sarah binti Mohd Noor',
     email: 'sitisarah@siswa.ukm.edu.my',
@@ -551,7 +551,7 @@ export const INITIAL_MEMBERS: MemberProfile[] = [
   },
   {
     id: 'mem-6',
-    username: 'APEP0002',
+    username: 'DR0006',
     package: 'Elite Plus',
     name: 'Mohd Hafiz bin Zulkifli',
     email: 'hafiz.zulkifli@upm.edu.my',
@@ -598,7 +598,7 @@ export const INITIAL_MEMBERS: MemberProfile[] = [
   },
   {
     id: 'mem-7',
-    username: 'APE0002',
+    username: 'DR0007',
     package: 'Elite',
     name: 'Khairul Anuar bin Salleh',
     email: 'khairul.anuar@um.edu.my',
@@ -636,7 +636,7 @@ export const INITIAL_MEMBERS: MemberProfile[] = [
   },
   {
     id: 'mem-8',
-    username: 'APE0003',
+    username: 'DR0008',
     package: 'Elite',
     name: 'Nadia Syuhada binti Roslan',
     email: 'nadia.syuhada@siswa.upsi.edu.my',
@@ -686,7 +686,7 @@ export const INITIAL_MEMBERS: MemberProfile[] = [
 export const INITIAL_DRAFTS: DraftSubmission[] = [
   {
     id: 'drf-1',
-    memberId: 'APP0001',
+    memberId: 'DR0001',
     ttb: 'Julai 2027 (Semester 5)',
     draftNumber: 6,
     date: '2026-11-16',
@@ -701,11 +701,12 @@ export const INITIAL_DRAFTS: DraftSubmission[] = [
     targetForNextDraft: 'Draf 7 pada 30 Nov 2026 (Lengkapkan Bab 4.4 Analisis PLS-SEM - 210 muka surat)',
     updateAffirmationCard: true,
     affirmationText: 'Tesis saya siap dengan cemerlang, lancar, dan memberi manfaat besar kepada ummah sebelum Julai 2027!',
+    draftLink: 'https://drive.google.com/file/d/draf-6-nik-kamariah-tesis-stem/view',
     crmpFeedback: 'Tahniah Nik Kamariah! Peningkatan 22 muka surat dalam Draf 6. Terus kekal BERTAHAN sampai jadi.',
   },
   {
     id: 'drf-2',
-    memberId: 'APP0001',
+    memberId: 'DR0001',
     ttb: 'Julai 2027 (Semester 5)',
     draftNumber: 5,
     date: '2026-11-02',
@@ -720,11 +721,12 @@ export const INITIAL_DRAFTS: DraftSubmission[] = [
     targetForNextDraft: 'Draf 6 pada 16 Nov 2026 (Bab 4 Dapatan Demografi & Deskriptif)',
     updateAffirmationCard: true,
     affirmationText: 'Saya menulis tesis dengan tenang dan penuh fokus setiap hari.',
+    draftLink: 'https://drive.google.com/file/d/draf-5-nik-kamariah-tesis-stem/view',
     crmpFeedback: 'Alhamdulillah, struktur Bab 3 sangat kemas.',
   },
   {
     id: 'drf-3',
-    memberId: 'APP0002',
+    memberId: 'DR0002',
     ttb: 'November 2026 (GOT)',
     draftNumber: 12,
     date: '2026-10-25',
@@ -739,11 +741,12 @@ export const INITIAL_DRAFTS: DraftSubmission[] = [
     targetForNextDraft: 'Draf Akhir Selepas Viva (Minor Correction)',
     updateAffirmationCard: true,
     affirmationText: 'Alhamdulillah GOT & Viva Lulus Cemerlang!',
+    draftLink: 'https://drive.google.com/file/d/draf-12-ahmad-faiz-iot-utm/view',
     crmpFeedback: 'Luar biasa Faiz! Contoh terbaik Draf ke-12 sebelum Viva.',
   },
   {
     id: 'drf-4',
-    memberId: 'APEP0001',
+    memberId: 'DR0003',
     ttb: 'Ogos 2027 (Semester 6)',
     draftNumber: 4,
     date: '2026-11-12',
@@ -758,6 +761,7 @@ export const INITIAL_DRAFTS: DraftSubmission[] = [
     targetForNextDraft: 'Draf 5 pada 26 Nov 2026 (Tema 1 & Tema 2 Bab 4)',
     updateAffirmationCard: true,
     affirmationText: 'Setiap hari saya semakin hampir ke garisan penamat PhD.',
+    draftLink: 'https://drive.google.com/file/d/draf-4-nurul-huda-usm/view',
     crmpFeedback: 'Pastikan jadual matriks tema Atlas.ti dilampirkan dalam Bab 4.',
   },
 ];
@@ -765,7 +769,7 @@ export const INITIAL_DRAFTS: DraftSubmission[] = [
 export const INITIAL_WEEKLY_CHECKLISTS: WeeklyChecklist[] = [
   {
     id: 'chk-1',
-    memberId: 'APP0001',
+    memberId: 'DR0001',
     weekLabel: 'Minggu 47 (15 Nov - 21 Nov 2026)',
     startDate: '2026-11-15',
     weeklyFokusAhad: 'Siapkan analisis deskriptif & ujian normaliti Bab 4 serta naik Draf ke-6 (sasaran +20 muka surat).',
@@ -849,7 +853,7 @@ export const INITIAL_RECORDINGS: ClassRecording[] = [
     videoUrl: 'https://zoom.us/rec/share/drroket-premier-minggu-46',
     description: 'Rakaman khas mingguan untuk Ahli Platinum Premier: semakan draf pantas, strategi menulis 2 jam 7 minit, dan soal jawab langsung.',
     allowedPackages: ['Premier'],
-    allowedMemberUsernames: ['APP0001', 'APP0002', 'APP0003'],
+    allowedMemberUsernames: ['DR0001', 'DR0002', 'DR0005'],
   },
   {
     id: 'rec-zoom-2',
@@ -862,7 +866,7 @@ export const INITIAL_RECORDINGS: ClassRecording[] = [
     videoUrl: 'https://zoom.us/rec/share/drroket-premier-minggu-45',
     description: 'Fokus mingguan ahli Premier: cara menukar Bab 2 dan Bab 4 menjadi artikel jurnal berimpak tinggi.',
     allowedPackages: ['Premier'],
-    allowedMemberUsernames: ['APP0001', 'APP0002', 'APP0003'],
+    allowedMemberUsernames: ['DR0001', 'DR0002', 'DR0005'],
   },
   // Rakaman Zoom - Bulanan (Elite Plus & Elite, juga boleh diakses Premier)
   {
@@ -876,7 +880,7 @@ export const INITIAL_RECORDINGS: ClassRecording[] = [
     videoUrl: 'https://zoom.us/rec/share/drroket-bulanan-nov-2026',
     description: 'Sesi bulanan bersama semua ahli Elite Plus, Elite, dan Premier bagi menyusun semula Thesis Map dan sasaran draf.',
     allowedPackages: ['Premier', 'Elite Plus', 'Elite'],
-    allowedMemberUsernames: ['APP0001', 'APP0002', 'APP0003', 'APEP0001', 'APEP0002', 'APE0001', 'APE0002', 'APE0003'],
+    allowedMemberUsernames: ['DR0001', 'DR0002', 'DR0005', 'DR0003', 'DR0006', 'DR0004', 'DR0007', 'DR0008'],
   },
   {
     id: 'rec-zoom-4',
@@ -889,7 +893,7 @@ export const INITIAL_RECORDINGS: ClassRecording[] = [
     videoUrl: 'https://zoom.us/rec/share/drroket-bulanan-okt-2026',
     description: 'Teknik komunikasi berkesan dengan penyelia dan kaedah mengatasi blok penulisan tesis.',
     allowedPackages: ['Premier', 'Elite Plus', 'Elite'],
-    allowedMemberUsernames: ['APP0001', 'APP0002', 'APP0003', 'APEP0001', 'APEP0002', 'APE0001', 'APE0002', 'APE0003'],
+    allowedMemberUsernames: ['DR0001', 'DR0002', 'DR0005', 'DR0003', 'DR0006', 'DR0004', 'DR0007', 'DR0008'],
   },
   // Rakaman Kelas Basic (Semua Kelas Percuma)
   {
@@ -902,7 +906,7 @@ export const INITIAL_RECORDINGS: ClassRecording[] = [
     videoUrl: 'https://player.drroket.com/basic/lr-basic-2026',
     description: 'Panduan langkah demi langkah mencari jurang kajian (research gap) dan membina jadual sintesis literatur.',
     allowedPackages: ['Premier', 'Elite Plus', 'Elite'],
-    allowedMemberUsernames: ['APP0001', 'APP0002', 'APP0003', 'APEP0001', 'APEP0002', 'APE0001', 'APE0002', 'APE0003'],
+    allowedMemberUsernames: ['DR0001', 'DR0002', 'DR0005', 'DR0003', 'DR0006', 'DR0004', 'DR0007', 'DR0008'],
   },
   {
     id: 'rec-basic-2',
@@ -914,7 +918,7 @@ export const INITIAL_RECORDINGS: ClassRecording[] = [
     videoUrl: 'https://player.drroket.com/basic/ps-basic-2026',
     description: 'Cara menulis pernyataan masalah yang tajam, berfakta, dan selari dengan persoalan serta objektif kajian.',
     allowedPackages: ['Premier', 'Elite Plus', 'Elite'],
-    allowedMemberUsernames: ['APP0001', 'APP0002', 'APP0003', 'APEP0001', 'APEP0002', 'APE0001', 'APE0002', 'APE0003'],
+    allowedMemberUsernames: ['DR0001', 'DR0002', 'DR0005', 'DR0003', 'DR0006', 'DR0004', 'DR0007', 'DR0008'],
   },
   {
     id: 'rec-basic-3',
@@ -926,7 +930,7 @@ export const INITIAL_RECORDINGS: ClassRecording[] = [
     videoUrl: 'https://player.drroket.com/basic/road-to-first-draft-proposal',
     description: 'Asas penghasilan draf pertama proposal dan tesis menggunakan formula 2 jam 7 minit dan Thesis Map.',
     allowedPackages: ['Premier', 'Elite Plus', 'Elite'],
-    allowedMemberUsernames: ['APP0001', 'APP0002', 'APP0003', 'APEP0001', 'APEP0002', 'APE0001', 'APE0002', 'APE0003'],
+    allowedMemberUsernames: ['DR0001', 'DR0002', 'DR0005', 'DR0003', 'DR0006', 'DR0004', 'DR0007', 'DR0008'],
   },
   // Rakaman Kelas Berbayar (Admin tentukan siapa yang bayar & boleh akses)
   {
@@ -939,7 +943,7 @@ export const INITIAL_RECORDINGS: ClassRecording[] = [
     videoUrl: 'https://player.drroket.com/paid/ai-software-academic-2026',
     description: 'Penggunaan beretika perisian AI untuk analisis bibliometrik, pemetaan literatur, dan penulisan artikel Scopus/WoS.',
     allowedPackages: [],
-    allowedMemberUsernames: ['APP0001', 'APP0002', 'APEP0001', 'APE0001'],
+    allowedMemberUsernames: ['DR0001', 'DR0002', 'DR0003', 'DR0004'],
     priceLabel: 'RM 290 (Berbayar)',
   },
   {
@@ -952,7 +956,7 @@ export const INITIAL_RECORDINGS: ClassRecording[] = [
     videoUrl: 'https://player.drroket.com/paid/ric-1-2-masterclass',
     description: 'Rakaman penuh bengkel intensif RIC I & II: evolusi draf pertama sehingga draf siap semakan Viva.',
     allowedPackages: [],
-    allowedMemberUsernames: ['APP0001', 'APP0002', 'APP0003', 'APEP0002'],
+    allowedMemberUsernames: ['DR0001', 'DR0002', 'DR0005', 'DR0006'],
     priceLabel: 'RM 450 (Berbayar)',
   },
   {
@@ -965,7 +969,7 @@ export const INITIAL_RECORDINGS: ClassRecording[] = [
     videoUrl: 'https://player.drroket.com/paid/vivalicious-special-2026',
     description: 'Rakaman eksklusif simulasi Viva sebenar, teknik menjawab soalan kritikal pemeriksa, dan penyediaan slaid Viva.',
     allowedPackages: [],
-    allowedMemberUsernames: ['APP0001', 'APP0002', 'APP0003'],
+    allowedMemberUsernames: ['DR0001', 'DR0002', 'DR0005'],
     priceLabel: 'RM 390 (Berbayar)',
   },
   // Arkib Video & Bahan Tahun 2025
@@ -980,7 +984,7 @@ export const INITIAL_RECORDINGS: ClassRecording[] = [
     videoUrl: 'https://zoom.us/rec/share/drroket-bulanan-dis-2025',
     description: 'Rumusan pencapaian draf tahun 2025 dan penyusunan jadual penulisan tesis sepanjang tahun.',
     allowedPackages: ['Premier', 'Elite Plus', 'Elite'],
-    allowedMemberUsernames: ['APP0001', 'APP0002', 'APP0003', 'APEP0001', 'APEP0002', 'APE0001', 'APE0002', 'APE0003'],
+    allowedMemberUsernames: ['DR0001', 'DR0002', 'DR0005', 'DR0003', 'DR0006', 'DR0004', 'DR0007', 'DR0008'],
   },
   {
     id: 'rec-basic-2025-1',
@@ -992,7 +996,7 @@ export const INITIAL_RECORDINGS: ClassRecording[] = [
     videoUrl: 'https://player.drroket.com/basic/metodologi-basic-2025',
     description: 'Panduan asas membina kerangka konseptual dan memilih reka bentuk kajian kuantitatif, kualitatif, atau campuran.',
     allowedPackages: ['Premier', 'Elite Plus', 'Elite'],
-    allowedMemberUsernames: ['APP0001', 'APP0002', 'APP0003', 'APEP0001', 'APEP0002', 'APE0001', 'APE0002', 'APE0003'],
+    allowedMemberUsernames: ['DR0001', 'DR0002', 'DR0005', 'DR0003', 'DR0006', 'DR0004', 'DR0007', 'DR0008'],
   },
   {
     id: 'rec-paid-2025-1',
@@ -1004,7 +1008,7 @@ export const INITIAL_RECORDINGS: ClassRecording[] = [
     videoUrl: 'https://player.drroket.com/paid/scopus-wos-masterclass-2025',
     description: 'Bengkel intensif pemilihan jurnal berindeks, struktur IMRaD, dan cara menjawab ulasan pewasit (reviewer).',
     allowedPackages: [],
-    allowedMemberUsernames: ['APP0001', 'APP0002', 'APEP0001'],
+    allowedMemberUsernames: ['DR0001', 'DR0002', 'DR0003'],
     priceLabel: 'RM 350 (Berbayar)',
   },
   // Arkib Video & Bahan Tahun 2024
@@ -1019,7 +1023,7 @@ export const INITIAL_RECORDINGS: ClassRecording[] = [
     videoUrl: 'https://zoom.us/rec/share/drroket-bulanan-nov-2024',
     description: 'Perkongsian asas disiplin penulisan pagi dan pengurusan masa bagi pelajar pascasiswazah.',
     allowedPackages: ['Premier', 'Elite Plus', 'Elite'],
-    allowedMemberUsernames: ['APP0001', 'APP0002', 'APP0003', 'APEP0001', 'APEP0002', 'APE0001', 'APE0002', 'APE0003'],
+    allowedMemberUsernames: ['DR0001', 'DR0002', 'DR0005', 'DR0003', 'DR0006', 'DR0004', 'DR0007', 'DR0008'],
   },
   {
     id: 'rec-basic-2024-1',
@@ -1031,14 +1035,14 @@ export const INITIAL_RECORDINGS: ClassRecording[] = [
     videoUrl: 'https://player.drroket.com/basic/mendeley-endnote-2024',
     description: 'Cara menguruskan ratusan artikel jurnal secara sistematik menggunakan perisian pengurusan sitasi.',
     allowedPackages: ['Premier', 'Elite Plus', 'Elite'],
-    allowedMemberUsernames: ['APP0001', 'APP0002', 'APP0003', 'APEP0001', 'APEP0002', 'APE0001', 'APE0002', 'APE0003'],
+    allowedMemberUsernames: ['DR0001', 'DR0002', 'DR0005', 'DR0003', 'DR0006', 'DR0004', 'DR0007', 'DR0008'],
   },
 ];
 
 export const INITIAL_THESIS_TALKS: ThesisTalkItem[] = [
   {
     id: 'tt-1',
-    memberUsername: 'APP0001',
+    memberUsername: 'DR0001',
     memberName: 'Nik Kamariah binti Nik Ismail',
     university: 'Universiti Pendidikan Sultan Idris (UPSI)',
     title: 'Analitik Pembelajaran dalam Pendidikan STEM: Bagaimana Saya Menyiapkan Draf Ke-6 dalam Semester 3',
@@ -1051,7 +1055,7 @@ export const INITIAL_THESIS_TALKS: ThesisTalkItem[] = [
   },
   {
     id: 'tt-2',
-    memberUsername: 'APP0002',
+    memberUsername: 'DR0002',
     memberName: 'Ahmad Faiz bin Abd Razak',
     university: 'Universiti Teknologi Malaysia (UTM)',
     title: 'Dari Draf 1 ke Lulus Viva (Minor Correction): Strategi 3 Artikel Q1 & Pengurusan Masa',
@@ -1064,7 +1068,7 @@ export const INITIAL_THESIS_TALKS: ThesisTalkItem[] = [
   },
   {
     id: 'tt-3',
-    memberUsername: 'APEP0001',
+    memberUsername: 'DR0003',
     memberName: 'Nurul Huda binti Kamarudin',
     university: 'Universiti Sains Malaysia (USM)',
     title: 'Pengalaman Analisis Kualitatif Atlas.ti bagi Kajian Kewangan Mikro Islam',
@@ -1082,7 +1086,7 @@ export const INITIAL_VC_VOTES: VCVoteRecord[] = [
     id: 'vc-1',
     date: '2026-11-18',
     sessionName: 'VC Pagi (Morning Doc & 2 Jam 7 Minit)',
-    memberUsername: 'APP0001',
+    memberUsername: 'DR0001',
     memberName: 'Nik Kamariah binti Nik Ismail',
     crmpId: 'CRMP001',
     status: 'Hadir Live',
@@ -1093,7 +1097,7 @@ export const INITIAL_VC_VOTES: VCVoteRecord[] = [
     id: 'vc-2',
     date: '2026-11-18',
     sessionName: 'VC Pagi (Morning Doc & 2 Jam 7 Minit)',
-    memberUsername: 'APP0002',
+    memberUsername: 'DR0002',
     memberName: 'Ahmad Faiz bin Abd Razak',
     crmpId: 'CRMP001',
     status: 'Hadir Live',
@@ -1104,7 +1108,7 @@ export const INITIAL_VC_VOTES: VCVoteRecord[] = [
     id: 'vc-3',
     date: '2026-11-18',
     sessionName: 'VC Pagi (Morning Doc & 2 Jam 7 Minit)',
-    memberUsername: 'APEP0001',
+    memberUsername: 'DR0003',
     memberName: 'Nurul Huda binti Kamarudin',
     crmpId: 'CRMP001',
     status: 'Hadir Live',
@@ -1115,7 +1119,7 @@ export const INITIAL_VC_VOTES: VCVoteRecord[] = [
     id: 'vc-4',
     date: '2026-11-18',
     sessionName: 'VC Pagi (Morning Doc & 2 Jam 7 Minit)',
-    memberUsername: 'APE0001',
+    memberUsername: 'DR0004',
     memberName: 'Farah Wahida binti Othman',
     crmpId: 'CRMP001',
     status: 'Hadir Rakaman',
@@ -1126,7 +1130,7 @@ export const INITIAL_VC_VOTES: VCVoteRecord[] = [
     id: 'vc-5',
     date: '2026-11-18',
     sessionName: 'VC Pagi (Morning Doc & 2 Jam 7 Minit)',
-    memberUsername: 'APE0003',
+    memberUsername: 'DR0008',
     memberName: 'Nadia Syuhada binti Roslan',
     crmpId: 'CRMP001',
     status: 'Hadir Live',
@@ -1137,7 +1141,7 @@ export const INITIAL_VC_VOTES: VCVoteRecord[] = [
     id: 'vc-6',
     date: '2026-11-18',
     sessionName: 'VC Pagi (Morning Doc & 2 Jam 7 Minit)',
-    memberUsername: 'APP0003',
+    memberUsername: 'DR0005',
     memberName: 'Siti Sarah binti Mohd Noor',
     crmpId: 'CRMP002',
     status: 'Hadir Live',
@@ -1148,7 +1152,7 @@ export const INITIAL_VC_VOTES: VCVoteRecord[] = [
     id: 'vc-7',
     date: '2026-11-18',
     sessionName: 'VC Pagi (Morning Doc & 2 Jam 7 Minit)',
-    memberUsername: 'APEP0002',
+    memberUsername: 'DR0006',
     memberName: 'Mohd Hafiz bin Zulkifli',
     crmpId: 'CRMP002',
     status: 'Hadir Live',

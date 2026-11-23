@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Calendar,
   CheckCircle2,
@@ -6,11 +6,16 @@ import {
   Flag,
   GraduationCap,
   MapPin,
-  Navigation,
   Sparkles,
 } from 'lucide-react';
-import { MemberProfile } from '../types';
-import { getTodayDateStr } from '../utils/helpers';
+import { MemberProfile, PhDPhase } from '../types';
+import { PHD_PHASES } from '../data/initialData';
+import {
+  derivePhaseFromDates,
+  getTodayDateStr,
+  inferMemberGender,
+  syncDatesToMatchPhase,
+} from '../utils/helpers';
 
 export interface RoadmapMilestone {
   key:
@@ -30,9 +35,209 @@ export interface RoadmapMilestone {
 interface MasterPhdRoadmapProps {
   member: MemberProfile;
   onUpdateDates?: (newDates: MemberProfile['dates']) => void;
+  onUpdatePhase?: (phase: PhDPhase) => void;
   defaultCurrentDate?: string;
   compact?: boolean;
 }
+
+/**
+ * Watak Ahli (Scholar Character Avatar) — Ceria & Profesional mengikut jantina (L/P)
+ * Tanpa sebarang teks "(dikesan: binti)".
+ */
+export const ScholarCharacterAvatar: React.FC<{
+  member: Pick<MemberProfile, 'name' | 'gender' | 'avatar'>;
+  size?: 'sm' | 'md' | 'lg' | 'xl';
+  showPhotoIfAvailable?: boolean;
+  withMortarboard?: boolean;
+}> = ({
+  member,
+  size = 'md',
+  showPhotoIfAvailable = true,
+  withMortarboard = false,
+}) => {
+  const gender = inferMemberGender(member);
+  const sizeClasses = {
+    sm: 'w-10 h-10',
+    md: 'w-14 h-14',
+    lg: 'w-16 h-16',
+    xl: 'w-20 h-20',
+  }[size];
+
+  if (showPhotoIfAvailable && member.avatar) {
+    return (
+      <div
+        className={`${sizeClasses} rounded-full overflow-hidden border-2 border-pink-300 shadow-md bg-purple-100 shrink-0`}
+      >
+        <img
+          src={member.avatar}
+          alt={member.name}
+          className="w-full h-full object-cover"
+        />
+      </div>
+    );
+  }
+
+  return (
+    <div
+      className={`${sizeClasses} rounded-full overflow-hidden border-2 border-white shadow-md bg-gradient-to-b from-purple-100 via-pink-100 to-indigo-100 flex items-center justify-center shrink-0`}
+      title={member.name}
+    >
+      {gender === 'Perempuan' ? (
+        /* Watak Ahli Perempuan (Bertudung Pink Ceria & Blazer Akademik Ungu seperti Gambar Rujukan) */
+        <svg viewBox="0 0 100 100" className="w-full h-full">
+          <defs>
+            <linearGradient id="hijabGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stopColor="#f472b6" />
+              <stop offset="100%" stopColor="#db2777" />
+            </linearGradient>
+            <linearGradient id="blazerGradP" x1="0%" y1="0%" x2="0%" y2="100%">
+              <stop offset="0%" stopColor="#3b0764" />
+              <stop offset="100%" stopColor="#1e1b4b" />
+            </linearGradient>
+          </defs>
+          {/* Bahu & Blazer Akademik */}
+          <path
+            d="M 16 98 C 16 74, 84 74, 84 98 Z"
+            fill="url(#blazerGradP)"
+          />
+          {/* Kolar Putih */}
+          <polygon points="40,76 50,90 60,76" fill="#ffffff" />
+          {/* Tudung / Hijab Labuh */}
+          <path
+            d="M 24 45 C 24 18, 76 18, 76 45 C 78 65, 74 79, 50 82 C 26 79, 22 65, 24 45 Z"
+            fill="url(#hijabGrad)"
+          />
+          {/* Wajah Ceria */}
+          <ellipse cx="50" cy="48" rx="17" ry="18" fill="#fde2c8" />
+          {/* Tudung Awning Atas */}
+          <path
+            d="M 33 42 C 38 27, 62 27, 67 42 C 60 34, 40 34, 33 42 Z"
+            fill="#ec4899"
+          />
+          {/* Mata & Kening */}
+          <circle cx="43.5" cy="48" r="2.1" fill="#1e293b" />
+          <circle cx="56.5" cy="48" r="2.1" fill="#1e293b" />
+          <circle cx="44.2" cy="47.3" r="0.7" fill="#ffffff" />
+          <circle cx="57.2" cy="47.3" r="0.7" fill="#ffffff" />
+          <path
+            d="M 39.5 43.5 Q 43.5 41.5 47 43.5"
+            fill="none"
+            stroke="#7c2d12"
+            strokeWidth="1.3"
+            strokeLinecap="round"
+          />
+          <path
+            d="M 53 43.5 Q 56.5 41.5 60.5 43.5"
+            fill="none"
+            stroke="#7c2d12"
+            strokeWidth="1.3"
+            strokeLinecap="round"
+          />
+          {/* Pipi Merah Jambu */}
+          <ellipse cx="38.5" cy="52.5" rx="3" ry="1.6" fill="#f472b6" opacity="0.45" />
+          <ellipse cx="61.5" cy="52.5" rx="3" ry="1.6" fill="#f472b6" opacity="0.45" />
+          {/* Senyuman Manis */}
+          <path
+            d="M 44.5 55.5 Q 50 60 55.5 55.5"
+            fill="none"
+            stroke="#be185d"
+            strokeWidth="2"
+            strokeLinecap="round"
+          />
+          {/* Topi Konvo Pilihan */}
+          {withMortarboard && (
+            <g>
+              <polygon
+                points="50,10 22,21 50,31 78,21"
+                fill="#1e1b4b"
+                stroke="#fbbf24"
+                strokeWidth="1.8"
+              />
+              <path
+                d="M 66 23 L 72 36"
+                stroke="#fbbf24"
+                strokeWidth="2"
+                strokeLinecap="round"
+              />
+              <circle cx="72" cy="37" r="2.2" fill="#f59e0b" />
+            </g>
+          )}
+        </svg>
+      ) : (
+        /* Watak Ahli Lelaki (Kot Akademik & Tali Leher Profesional) */
+        <svg viewBox="0 0 100 100" className="w-full h-full">
+          <defs>
+            <linearGradient id="blazerGradL" x1="0%" y1="0%" x2="0%" y2="100%">
+              <stop offset="0%" stopColor="#312e81" />
+              <stop offset="100%" stopColor="#1e1b4b" />
+            </linearGradient>
+          </defs>
+          {/* Bahu & Kot Akademik */}
+          <path
+            d="M 15 98 C 15 72, 85 72, 85 98 Z"
+            fill="url(#blazerGradL)"
+          />
+          {/* Kemeja Putih & Tali Leher */}
+          <polygon points="39,72 50,94 61,72" fill="#ffffff" />
+          <polygon points="48,74 52,74 53,93 50,97 47,93" fill="#ec4899" />
+          {/* Leher & Wajah */}
+          <rect x="44" y="62" width="12" height="12" rx="4" fill="#f7cfa8" />
+          <ellipse cx="50" cy="47" rx="18" ry="19" fill="#fde2c8" />
+          {/* Rambut Kemas */}
+          <path
+            d="M 31 44 C 31 23, 69 23, 69 44 C 66 33, 56 30, 48 31 C 39 31, 34 36, 31 44 Z"
+            fill="#1e293b"
+          />
+          {/* Mata & Kening */}
+          <circle cx="43" cy="47.5" r="2.1" fill="#0f172a" />
+          <circle cx="57" cy="47.5" r="2.1" fill="#0f172a" />
+          <circle cx="43.7" cy="46.8" r="0.7" fill="#ffffff" />
+          <circle cx="57.7" cy="46.8" r="0.7" fill="#ffffff" />
+          <path
+            d="M 38.5 42.5 Q 43 40.5 47 42.5"
+            fill="none"
+            stroke="#1e293b"
+            strokeWidth="1.6"
+            strokeLinecap="round"
+          />
+          <path
+            d="M 53 42.5 Q 57 40.5 61.5 42.5"
+            fill="none"
+            stroke="#1e293b"
+            strokeWidth="1.6"
+            strokeLinecap="round"
+          />
+          {/* Senyuman Ceria */}
+          <path
+            d="M 44 55.5 Q 50 60 56 55.5"
+            fill="none"
+            stroke="#9a3412"
+            strokeWidth="2"
+            strokeLinecap="round"
+          />
+          {/* Topi Konvo Pilihan */}
+          {withMortarboard && (
+            <g>
+              <polygon
+                points="50,11 22,22 50,32 78,22"
+                fill="#1e1b4b"
+                stroke="#fbbf24"
+                strokeWidth="1.8"
+              />
+              <path
+                d="M 66 24 L 72 37"
+                stroke="#fbbf24"
+                strokeWidth="2"
+                strokeLinecap="round"
+              />
+              <circle cx="72" cy="38" r="2.2" fill="#f59e0b" />
+            </g>
+          )}
+        </svg>
+      )}
+    </div>
+  );
+};
 
 function parseDateMs(dateStr?: string): number | null {
   if (!dateStr || !dateStr.trim()) return null;
@@ -125,7 +330,7 @@ function buildWindingRoadSvgPath(): string {
 }
 
 /**
- * Grafik Topi Konvo (Mortarboard) & Mercun (Fireworks) untuk Convocation (Tanpa Gambar Orang)
+ * Grafik Topi Konvo (Mortarboard) & Mercun (Fireworks) untuk Convocation
  */
 const ConvocationHatAndFireworksIcon: React.FC<{ active: boolean }> = ({
   active,
@@ -137,7 +342,6 @@ const ConvocationHatAndFireworksIcon: React.FC<{ active: boolean }> = ({
   >
     {/* Mercun / Fireworks Kiri, Kanan & Atas */}
     <g className={active ? 'animate-pulse' : 'opacity-85'}>
-      {/* Mercun Kiri */}
       <circle cx="12" cy="16" r="2.5" fill="#fbbf24" />
       <circle cx="6" cy="10" r="2" fill="#f43f5e" />
       <circle cx="17" cy="8" r="2" fill="#38bdf8" />
@@ -170,7 +374,6 @@ const ConvocationHatAndFireworksIcon: React.FC<{ active: boolean }> = ({
         strokeLinecap="round"
       />
 
-      {/* Mercun Kanan */}
       <circle cx="68" cy="16" r="2.5" fill="#fbbf24" />
       <circle cx="75" cy="10" r="2" fill="#10b981" />
       <circle cx="63" cy="8" r="2" fill="#ec4899" />
@@ -203,7 +406,6 @@ const ConvocationHatAndFireworksIcon: React.FC<{ active: boolean }> = ({
         strokeLinecap="round"
       />
 
-      {/* Mercun Tengah Atas */}
       <circle cx="40" cy="6" r="2.5" fill="#f59e0b" />
       <circle cx="33" cy="3" r="1.8" fill="#38bdf8" />
       <circle cx="47" cy="3" r="1.8" fill="#f43f5e" />
@@ -222,7 +424,6 @@ const ConvocationHatAndFireworksIcon: React.FC<{ active: boolean }> = ({
       stroke="#fbbf24"
       strokeWidth="1.5"
     />
-    {/* Butang & Jambul Emas Topi Konvo */}
     <circle cx="40" cy="28" r="3" fill="#fbbf24" />
     <path
       d="M 40 28 Q 55 31 59 47"
@@ -238,6 +439,7 @@ const ConvocationHatAndFireworksIcon: React.FC<{ active: boolean }> = ({
 export const MasterPhdRoadmap: React.FC<MasterPhdRoadmapProps> = ({
   member,
   onUpdateDates,
+  onUpdatePhase,
   defaultCurrentDate,
   compact = false,
 }) => {
@@ -249,6 +451,22 @@ export const MasterPhdRoadmap: React.FC<MasterPhdRoadmapProps> = ({
     ...member.dates,
     convocation: member.dates.convocation || '2027-11-25',
   });
+
+  useEffect(() => {
+    setLocalDates({
+      ...member.dates,
+      convocation: member.dates.convocation || '2027-11-25',
+    });
+  }, [
+    member.id,
+    member.dates.earlyRegistration,
+    member.dates.registerPD,
+    member.dates.dataCollectionAnalysis,
+    member.dates.nos,
+    member.dates.thesisSubmission,
+    member.dates.viva,
+    member.dates.convocation,
+  ]);
 
   const milestones: RoadmapMilestone[] = [
     {
@@ -374,33 +592,44 @@ export const MasterPhdRoadmap: React.FC<MasterPhdRoadmapProps> = ({
   const currentMarkerCoord = getPointAlongWindingRoad(roadProgressPercentage);
 
   return (
-    <div className="bg-white border border-slate-200 rounded-2xl p-6 space-y-6">
+    <div className="bg-white border border-purple-200/80 rounded-2xl p-6 space-y-6 shadow-sm">
       {/* Header & Controls */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-slate-200 pb-4">
-        <div className="space-y-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="px-2.5 py-0.5 rounded-md bg-indigo-950 text-amber-300 font-mono text-xs font-bold">
-              MASTER PhD ROADMAP
-            </span>
-            <span className="px-2.5 py-0.5 rounded-md bg-indigo-50 border border-indigo-200 text-indigo-800 text-xs font-bold">
-              Peringkat: {member.studyLevel || 'PhD'} · {member.university}
-            </span>
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-purple-100 pb-4">
+        <div className="flex items-center gap-3.5">
+          <ScholarCharacterAvatar
+            member={member}
+            size="lg"
+            showPhotoIfAvailable={false}
+            withMortarboard
+          />
+          <div className="space-y-1">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="px-2.5 py-0.5 rounded-md bg-gradient-to-r from-[#2e1065] to-[#4c1d95] text-amber-300 font-mono text-xs font-bold">
+                MASTER PhD ROADMAP
+              </span>
+              <span className="px-2.5 py-0.5 rounded-md bg-purple-50 border border-purple-200 text-purple-900 text-xs font-bold">
+                Peringkat: {member.studyLevel || 'PhD'} · {member.university}
+              </span>
+              <span className="px-2.5 py-0.5 rounded-md bg-pink-50 border border-pink-200 text-pink-800 text-xs font-bold">
+                Fasa Semasa: {member.currentPhase}
+              </span>
+            </div>
+            <h2 className="text-lg font-bold text-slate-900">
+              Peta Perjalanan Berliku Menuju Convocation ({member.name})
+            </h2>
+            <p className="text-xs text-slate-500">
+              Watak ahli bergerak di atas jalan berliku-liku mengikut tarikh
+              akhir setiap fasa yang telah selesai dan tarikh semasa.
+            </p>
           </div>
-          <h2 className="text-lg font-bold text-slate-900">
-            Peta Perjalanan Berliku Menuju Convocation ({member.name})
-          </h2>
-          <p className="text-xs text-slate-500">
-            Penanda perjalanan bergerak di atas jalan berliku-liku mengikut
-            tarikh akhir bahagian yang telah selesai dan tarikh semasa.
-          </p>
         </div>
 
         {/* Simulasi / Pemilih Tarikh Semasa (Klik Kalendar) */}
         <div className="flex flex-wrap items-center gap-2.5 shrink-0">
-          <div className="flex items-center gap-2 bg-indigo-50/80 border border-indigo-200 rounded-xl px-3.5 py-2">
-            <Calendar className="w-4 h-4 text-indigo-700 shrink-0" />
+          <div className="flex items-center gap-2 bg-purple-50/90 border border-purple-200 rounded-xl px-3.5 py-2">
+            <Calendar className="w-4 h-4 text-purple-700 shrink-0" />
             <div>
-              <div className="text-[10px] font-bold uppercase tracking-wider text-indigo-700">
+              <div className="text-[10px] font-bold uppercase tracking-wider text-purple-700">
                 Tarikh Semasa (Klik Kalendar)
               </div>
               <input
@@ -415,7 +644,7 @@ export const MasterPhdRoadmap: React.FC<MasterPhdRoadmapProps> = ({
             <button
               type="button"
               onClick={() => setCurrentDate(todayStr)}
-              className="px-3 py-2 bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold rounded-xl cursor-pointer"
+              className="px-3 py-2 bg-purple-900 hover:bg-purple-800 text-white text-xs font-semibold rounded-xl cursor-pointer"
             >
               Reset Hari Ini ({todayStr})
             </button>
@@ -423,10 +652,64 @@ export const MasterPhdRoadmap: React.FC<MasterPhdRoadmapProps> = ({
         </div>
       </div>
 
+      {/* Pilihan Kemaskini Fasa Kajian Semasa (Diselaraskan 100% dengan Master PhD Roadmap) */}
+      {onUpdatePhase && !compact && (
+        <div className="p-4 rounded-xl bg-gradient-to-r from-purple-50/80 via-pink-50/60 to-indigo-50/80 border border-purple-200/80 space-y-2.5">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="text-xs font-bold text-purple-950">
+              Fasa Kajian Semasa (Selari dengan Tarikh Master PhD Roadmap):
+            </div>
+            <span className="text-[11px] font-mono font-bold text-purple-800 bg-white px-2.5 py-0.5 rounded-md border border-purple-200">
+              Fasa Aktif: {derivePhaseFromDates(localDates, currentDate).phase} · Kemajuan: {member.overallProgress}%
+            </span>
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
+            {PHD_PHASES.map((p, idx) => {
+              const syncedCurrentPhase = derivePhaseFromDates(
+                localDates,
+                currentDate
+              ).phase;
+              const isSelected = syncedCurrentPhase === p;
+              return (
+                <button
+                  key={p}
+                  type="button"
+                  onClick={() => {
+                    const nextDates = syncDatesToMatchPhase(
+                      localDates,
+                      p,
+                      currentDate
+                    );
+                    setLocalDates(nextDates);
+                    onUpdatePhase(p);
+                  }}
+                  className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer ${
+                    isSelected
+                      ? 'bg-gradient-to-r from-pink-500 to-purple-700 text-white border-pink-500 shadow-sm'
+                      : 'bg-white hover:bg-purple-50 text-slate-700 border-purple-200/80'
+                  }`}
+                >
+                  <div
+                    className={`text-[10px] font-mono font-bold ${
+                      isSelected ? 'text-pink-100' : 'text-purple-700'
+                    }`}
+                  >
+                    FASA {idx + 1}
+                  </div>
+                  <div className="text-xs font-bold leading-snug mt-0.5 line-clamp-2">
+                    {p}
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       {/* Status Bar Perjalanan Semasa */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5">
-        <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-indigo-600 text-white flex items-center justify-center shrink-0">
+        <div className="p-3.5 rounded-xl bg-purple-50/60 border border-purple-200/80 flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-purple-700 text-white flex items-center justify-center shrink-0">
             <Flag className="w-5 h-5" />
           </div>
           <div className="min-w-0">
@@ -439,12 +722,12 @@ export const MasterPhdRoadmap: React.FC<MasterPhdRoadmapProps> = ({
           </div>
         </div>
 
-        <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 flex items-center gap-3">
+        <div className="p-3.5 rounded-xl bg-emerald-50/70 border border-emerald-200 flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center shrink-0 font-mono text-xs font-bold">
             {Math.max(0, lastCompletedIndex + 1)}/6
           </div>
           <div className="min-w-0">
-            <div className="text-[11px] text-slate-500 font-medium">
+            <div className="text-[11px] text-emerald-800 font-medium">
               Bahagian Telah Selesai
             </div>
             <div className="text-xs font-bold text-slate-900 truncate">
@@ -472,12 +755,12 @@ export const MasterPhdRoadmap: React.FC<MasterPhdRoadmapProps> = ({
       </div>
 
       {/* ================================================================ */}
-      {/* GRAFIK JALAN BERLIKU-LIKU MENUJU KE CONVOCATION (TANPA ORANG)    */}
+      {/* GRAFIK JALAN BERLIKU-LIKU MENUJU KE CONVOCATION + WATAK AHLI      */}
       {/* ================================================================ */}
-      <div className="relative rounded-2xl bg-gradient-to-b from-slate-950 via-indigo-950 to-slate-900 border border-slate-800 p-5 sm:p-6 overflow-x-auto text-white">
+      <div className="relative rounded-2xl bg-gradient-to-b from-[#1e1b4b] via-[#2e1065] to-[#1e1b4b] border border-purple-800 p-5 sm:p-6 overflow-x-auto text-white shadow-inner">
         <div className="min-w-[820px]">
           {/* Tajuk Atas Peta & Petunjuk */}
-          <div className="flex items-center justify-between text-xs text-slate-300 mb-2">
+          <div className="flex items-center justify-between text-xs text-purple-200 mb-2">
             <div className="flex items-center gap-2 font-semibold">
               <Sparkles className="w-4 h-4 text-amber-400" />
               <span>
@@ -491,11 +774,11 @@ export const MasterPhdRoadmap: React.FC<MasterPhdRoadmapProps> = ({
                 Selesai
               </span>
               <span className="inline-flex items-center gap-1.5">
-                <span className="w-2.5 h-2.5 rounded-full bg-amber-400 inline-block" />
-                Kedudukan Semasa ({currentDate})
+                <span className="w-2.5 h-2.5 rounded-full bg-pink-400 inline-block" />
+                Watak Ahli ({currentDate})
               </span>
               <span className="inline-flex items-center gap-1.5">
-                <span className="w-2.5 h-2.5 rounded-full bg-slate-500 inline-block" />
+                <span className="w-2.5 h-2.5 rounded-full bg-slate-400 inline-block" />
                 Sasaran Akan Datang
               </span>
             </div>
@@ -516,7 +799,7 @@ export const MasterPhdRoadmap: React.FC<MasterPhdRoadmapProps> = ({
                   y2="0%"
                 >
                   <stop offset="0%" stopColor="#10b981" />
-                  <stop offset="60%" stopColor="#34d399" />
+                  <stop offset="55%" stopColor="#ec4899" />
                   <stop offset="100%" stopColor="#fbbf24" />
                 </linearGradient>
                 <filter
@@ -536,18 +819,18 @@ export const MasterPhdRoadmap: React.FC<MasterPhdRoadmapProps> = ({
                 </filter>
               </defs>
 
-              {/* Hiasan Latar Belakang (Bukit / Bintang Halus) */}
-              <circle cx="150" cy="60" r="2" fill="#475569" />
-              <circle cx="480" cy="50" r="2.5" fill="#64748b" />
-              <circle cx="760" cy="65" r="2" fill="#475569" />
-              <circle cx="330" cy="390" r="2" fill="#475569" />
-              <circle cx="630" cy="395" r="2.5" fill="#64748b" />
+              {/* Hiasan Latar Belakang (Bintang Halus) */}
+              <circle cx="150" cy="60" r="2" fill="#a78bfa" opacity="0.5" />
+              <circle cx="480" cy="50" r="2.5" fill="#f472b6" opacity="0.5" />
+              <circle cx="760" cy="65" r="2" fill="#a78bfa" opacity="0.5" />
+              <circle cx="330" cy="390" r="2" fill="#a78bfa" opacity="0.5" />
+              <circle cx="630" cy="395" r="2.5" fill="#f472b6" opacity="0.5" />
 
               {/* 1. Bahu Jalan / Sempadan Luar Jalan Berliku */}
               <path
                 d={windingRoadPathD}
                 fill="none"
-                stroke="#334155"
+                stroke="#4c1d95"
                 strokeWidth="54"
                 strokeLinecap="round"
                 strokeLinejoin="round"
@@ -564,7 +847,7 @@ export const MasterPhdRoadmap: React.FC<MasterPhdRoadmapProps> = ({
                 strokeLinejoin="round"
               />
 
-              {/* 3. Jalur Kemajuan Hijau-Emas Mengikut Peratus Perjalanan */}
+              {/* 3. Jalur Kemajuan Hijau-Pink-Emas Mengikut Peratus Perjalanan */}
               <path
                 d={windingRoadPathD}
                 fill="none"
@@ -575,7 +858,7 @@ export const MasterPhdRoadmap: React.FC<MasterPhdRoadmapProps> = ({
                 pathLength={100}
                 strokeDasharray="100"
                 strokeDashoffset={100 - roadProgressPercentage}
-                className="transition-all duration-700 ease-out opacity-85"
+                className="transition-all duration-700 ease-out opacity-90"
               />
 
               {/* 4. Garisan Putus-Putus Putih Di Tengah Jalan Berliku */}
@@ -606,7 +889,6 @@ export const MasterPhdRoadmap: React.FC<MasterPhdRoadmapProps> = ({
 
                 return (
                   <g key={m.key}>
-                    {/*Jika Convocation, papar Topi Konvo & Mercun di atas stesen ke-6 */}
                     {isConvo && (
                       <foreignObject
                         x={coord.x - 42}
@@ -620,7 +902,6 @@ export const MasterPhdRoadmap: React.FC<MasterPhdRoadmapProps> = ({
                       </foreignObject>
                     )}
 
-                    {/* Garis Tiang Penanda Stesen */}
                     <line
                       x1={coord.x}
                       y1={coord.y}
@@ -636,14 +917,13 @@ export const MasterPhdRoadmap: React.FC<MasterPhdRoadmapProps> = ({
                           : isDone
                           ? '#34d399'
                           : isNextTarget
-                          ? '#818cf8'
+                          ? '#f472b6'
                           : '#64748b'
                       }
                       strokeWidth="2.5"
                       strokeDasharray="3 3"
                     />
 
-                    {/* Bulatan Checkpoint Di Atas Jalan */}
                     <circle
                       cx={coord.x}
                       cy={coord.y}
@@ -656,7 +936,7 @@ export const MasterPhdRoadmap: React.FC<MasterPhdRoadmapProps> = ({
                           : isDone
                           ? '#10b981'
                           : isNextTarget
-                          ? '#4f46e5'
+                          ? '#db2777'
                           : '#1e293b'
                       }
                       stroke={
@@ -665,13 +945,12 @@ export const MasterPhdRoadmap: React.FC<MasterPhdRoadmapProps> = ({
                           : isDone
                           ? '#a7f3d0'
                           : isNextTarget
-                          ? '#c7d2fe'
+                          ? '#fbcfe8'
                           : '#64748b'
                       }
                       strokeWidth="4"
                     />
 
-                    {/* Nombor Fasa Di Dalam Checkpoint */}
                     <text
                       x={coord.x}
                       y={coord.y + 4}
@@ -684,7 +963,6 @@ export const MasterPhdRoadmap: React.FC<MasterPhdRoadmapProps> = ({
                       {isDone ? '✓' : m.stepNumber}
                     </text>
 
-                    {/* Kad Maklumat Fasa (ForeignObject) */}
                     <foreignObject
                       x={cardX}
                       y={cardY}
@@ -698,7 +976,7 @@ export const MasterPhdRoadmap: React.FC<MasterPhdRoadmapProps> = ({
                             : isDone
                             ? 'bg-emerald-950/90 border-emerald-400/70 text-emerald-100'
                             : isNextTarget
-                            ? 'bg-indigo-950/90 border-indigo-400 text-indigo-100'
+                            ? 'bg-pink-950/90 border-pink-400 text-pink-100'
                             : 'bg-slate-900/90 border-slate-700 text-slate-300'
                         }`}
                       >
@@ -717,42 +995,40 @@ export const MasterPhdRoadmap: React.FC<MasterPhdRoadmapProps> = ({
                 );
               })}
 
-              {/* 6. Penanda Kedudukan Semasa Di Atas Jalan Berliku (TANPA GAMBAR ORANG) */}
+              {/* 6. Watak Ahli Bergerak Di Atas Jalan Berliku-Liku */}
               <g
                 transform={`translate(${currentMarkerCoord.x}, ${currentMarkerCoord.y})`}
                 className="transition-all duration-700 ease-out"
               >
-                {/* Gelombang Cahaya Kedudukan Semasa */}
                 <circle
                   cx="0"
                   cy="0"
-                  r="26"
+                  r="30"
+                  fill="#ec4899"
+                  opacity="0.28"
+                />
+                <circle
+                  cx="0"
+                  cy="0"
+                  r="9"
                   fill="#fbbf24"
-                  opacity="0.25"
-                />
-                <circle
-                  cx="0"
-                  cy="0"
-                  r="16"
-                  fill="#f59e0b"
                   stroke="#ffffff"
-                  strokeWidth="3.5"
+                  strokeWidth="2.5"
                 />
-                {/* Anak Panah / Pin Navigasi Di Tengah */}
-                <polygon points="-5,-6 7,0 -5,6 -2,0" fill="#0f172a" />
 
-                {/* Label Terapung Kedudukan Semasa */}
-                <foreignObject x={-78} y={-62} width={156} height={42}>
+                {/* Watak Ahli Terapung Di Atas Titik Kedudukan Semasa */}
+                <foreignObject x={-86} y={-84} width={172} height={80}>
                   <div className="flex flex-col items-center">
-                    <div className="px-2.5 py-1 rounded-full bg-amber-400 text-slate-950 font-mono text-[10px] font-extrabold shadow-md border border-white whitespace-nowrap flex items-center gap-1">
-                      <Navigation className="w-3 h-3 fill-slate-950" />
-                      <span>
-                        {isConvocationReached
-                          ? 'CONVOCATION! 🎓🎆'
-                          : `ANDA DI SINI (${Math.round(
-                              roadProgressPercentage
-                            )}%)`}
-                      </span>
+                    <ScholarCharacterAvatar
+                      member={member}
+                      size="md"
+                      showPhotoIfAvailable={false}
+                      withMortarboard
+                    />
+                    <div className="mt-1 px-2.5 py-0.5 rounded-full bg-gradient-to-r from-pink-500 to-amber-500 text-white font-mono text-[10px] font-extrabold shadow-md border border-white whitespace-nowrap">
+                      {isConvocationReached
+                        ? 'CONVOCATION! 🎓🎆'
+                        : `${Math.round(roadProgressPercentage)}% PERJALANAN`}
                     </div>
                   </div>
                 </foreignObject>
@@ -774,11 +1050,11 @@ export const MasterPhdRoadmap: React.FC<MasterPhdRoadmapProps> = ({
               </h3>
               <p className="text-xs text-slate-500">
                 Klik pada ruangan tarikh di bawah untuk memilih tarikh setiap
-                fasa. Penanda perjalanan di atas jalan berliku akan bergerak
-                secara automatik.
+                fasa. Watak ahli di atas jalan berliku akan bergerak secara
+                automatik.
               </p>
             </div>
-            <span className="text-xs font-mono text-indigo-700 font-semibold">
+            <span className="text-xs font-mono text-purple-700 font-semibold">
               Tarikh Semasa: {currentDate}
             </span>
           </div>
@@ -798,7 +1074,7 @@ export const MasterPhdRoadmap: React.FC<MasterPhdRoadmapProps> = ({
                       : isDone
                       ? 'bg-emerald-50/60 border-emerald-300'
                       : isNext
-                      ? 'bg-indigo-50/60 border-indigo-300'
+                      ? 'bg-pink-50/60 border-pink-300'
                       : 'bg-white border-slate-200'
                   }`}
                 >
@@ -811,7 +1087,7 @@ export const MasterPhdRoadmap: React.FC<MasterPhdRoadmapProps> = ({
                             : isDone
                             ? 'bg-emerald-600 text-white'
                             : isNext
-                            ? 'bg-indigo-600 text-white'
+                            ? 'bg-pink-600 text-white'
                             : 'bg-slate-200 text-slate-700'
                         }`}
                       >
@@ -832,7 +1108,7 @@ export const MasterPhdRoadmap: React.FC<MasterPhdRoadmapProps> = ({
                         isDone
                           ? 'bg-emerald-100 text-emerald-800'
                           : isNext
-                          ? 'bg-indigo-100 text-indigo-800'
+                          ? 'bg-pink-100 text-pink-800'
                           : 'bg-slate-100 text-slate-600'
                       }`}
                     >
@@ -865,7 +1141,7 @@ export const MasterPhdRoadmap: React.FC<MasterPhdRoadmapProps> = ({
                       onChange={(e) =>
                         handleDateFieldChange(m.key, e.target.value)
                       }
-                      className="w-full px-3 py-2 text-xs font-mono font-bold bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-600 cursor-pointer"
+                      className="w-full px-3 py-2 text-xs font-mono font-bold bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-600 cursor-pointer"
                     />
                   </div>
                 </div>
